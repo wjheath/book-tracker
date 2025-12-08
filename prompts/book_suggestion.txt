@@ -1,0 +1,31 @@
+Based on the following books the user has read (dates included when available):
+
+{books_list}
+
+Please suggest {num_suggestions} books they might enjoy reading next.
+
+IMPORTANT INSTRUCTIONS:
+- Approximately 80% should be NEW books not in any list below
+- Approximately 20% (1-2 suggestions) can be books from their "to-read" list that match their recent interests
+- You may reference their to-read list to check if a perfect match already exists that they should prioritize
+
+For each suggestion, provide:
+1) Book title
+2) Author
+3) A one-sentence reason why they might enjoy it based on their reading history
+4) (Optional) If it's from their to-read list, note: [Already in to-read list]
+
+Analysis hints:
+- Use the dates to identify their recent reading trends and favorite time periods
+- Notice what genres they read recently vs. historically
+- Consider if they've been reading more or less recently
+- Identify patterns in their reading: do they prefer series? Literary fiction? Thrillers? Action?
+- The difficulty and pacing of recent books should inform suggestions
+- If recommending a to-read book, pick one that perfectly matches their current taste
+
+You can assume from the books list that if the user has read books in a series they have read the previous book. Their books list may be partially incomplete.
+
+Return the suggestions as a numbered list in format: 
+- "1. Title by Author - reason"
+- "1. Title by Author - reason [Already in to-read list]"
+
