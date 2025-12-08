@@ -131,7 +131,6 @@ Edit `prompts/book_suggestion.txt` to customize AI suggestions.
 - Check `data/books.db` exists
 - Run: `python src/inspect_db.py`
 
-For more help: See `TROUBLESHOOTING.md`
 
 ## 📖 Documentation
 
@@ -148,22 +147,3 @@ For more help: See `TROUBLESHOOTING.md`
 - **Import CSV**: Use `python src/import_books.py`
 - **Check DB**: Run `python src/inspect_db.py`
 
-## ✅ Verify Setup
-
-```bash
-python verify_setup.py
-```
-
-## 🎯 Next Steps
-
-1. Start the app (`start_ui_simple.bat` or `python run_ui.py`)
-2. View your 239 imported books
-3. Add a new book
-4. Try getting AI suggestions
-5. Customize your experience!
-
----
-
-**Happy reading! 📚✨**
-
-For help: See `TROUBLESHOOTING.md`
