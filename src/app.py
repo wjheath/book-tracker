@@ -1,5 +1,7 @@
 import os
 import sys
+import csv
+import io
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from database import Database
@@ -200,6 +202,86 @@ def health_check():
         'message': 'API is running',
         'llm_available': suggester is not None and suggester.client is not None
     })
+
+@app.route('/api/import', methods=['POST'])
+def import_csv():
+    """Import books from a CSV file (StoryGraph/Goodreads format)"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.endswith('.csv'):
+            return jsonify({'success': False, 'error': 'File must be a CSV'}), 400
+        
+        # Read CSV content
+        content = file.read().decode('utf-8')
+        csv_reader = csv.DictReader(io.StringIO(content))
+        
+        book_manager, db = get_book_manager()
+        
+        # Get existing books to check for duplicates
+        existing_books = book_manager.list_books()
+        existing_titles = {(b['title'].lower(), b['author'].lower()) for b in existing_books}
+        
+        imported = 0
+        skipped = 0
+        
+        for row in csv_reader:
+            # Support both StoryGraph and Goodreads formats
+            title = row.get('Title', row.get('title', '')).strip()
+            author = row.get('Authors', row.get('Author', row.get('author', ''))).strip()
+            
+            # Handle status - StoryGraph uses "Read Status", Goodreads uses "Exclusive Shelf"
+            status_raw = row.get('Read Status', row.get('Exclusive Shelf', 'to-read')).lower().strip()
+            
+            # Normalize status
+            if status_raw in ['read', 'finished']:
+                status = 'read'
+            elif status_raw in ['currently-reading', 'currently reading', 'reading']:
+                status = 'currently-reading'
+            else:
+                status = 'to-read'
+            
+            # Extract read date
+            read_date = None
+            if status == 'read':
+                # StoryGraph format
+                read_date = row.get('Last Date Read', '').strip()
+                if not read_date:
+                    dates_read = row.get('Dates Read', '').strip()
+                    if dates_read and '-' in dates_read:
+                        read_date = dates_read.split('-')[-1].strip()
+                # Goodreads format
+                if not read_date:
+                    read_date = row.get('Date Read', '').strip()
+            
+            if title and author:
+                # Check for duplicates
+                if (title.lower(), author.lower()) in existing_titles:
+                    skipped += 1
+                    continue
+                
+                book_manager.add_book(title, author, status, read_date)
+                existing_titles.add((title.lower(), author.lower()))
+                imported += 1
+        
+        # Get updated count
+        all_books = book_manager.list_books()
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'imported': imported,
+            'skipped': skipped,
+            'total': len(all_books)
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ============== ERROR HANDLERS ==============
 
