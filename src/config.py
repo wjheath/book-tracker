@@ -9,13 +9,13 @@ DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///data/books.db')
 
 # OpenAI configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-# Preferred model(s). Try GPT-5.1 first, then fall back to known available models.
-OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-5.1')
-GPT_PREFERRED_MODELS = os.getenv('GPT_PREFERRED_MODELS', 'gpt-5.1,gpt-5-mini,gpt-3.5-turbo').split(',')
+# Preferred model(s). Use GPT-4o-mini as default (cost-effective), fall back to GPT-4o and GPT-3.5-turbo
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini')
+GPT_PREFERRED_MODELS = os.getenv('GPT_PREFERRED_MODELS', 'gpt-4o-mini,gpt-4o,gpt-3.5-turbo').split(',')
 OPENAI_REASONING = os.getenv('OPENAI_REASONING', 'medium')
 
-# CSV import path
-CSV_IMPORT_PATH = os.getenv('CSV_IMPORT_PATH', 'C:\\Users\\wjhea\\Downloads\\storygraph_1115.csv')
+# CSV import path (optional - used for importing books from StoryGraph/Goodreads exports)
+CSV_IMPORT_PATH = os.getenv('CSV_IMPORT_PATH', '')
 
 # Note: we don't raise immediately here so the app can run in limited dry-run mode
 if not OPENAI_API_KEY:
@@ -30,16 +30,16 @@ DEBUG = True  # Set to False in production
 CUSTOM_PROMPT_TEMPLATE = os.getenv('CUSTOM_PROMPT_TEMPLATE', None)
 
 # Default prompt template (used if no custom prompt is found)
-DEFAULT_PROMPT_TEMPLATE = """Based on the following books the user has read:
+DEFAULT_PROMPT_TEMPLATE = """You are an expert book recommender. Based on the user's reading history:
 
 {books_list}
 
-Please suggest {num_suggestions} new books they might enjoy reading next. For each suggestion, provide:
-1) Book title
-2) Author
-3) A one-sentence reason why they might enjoy it based on their reading history
+Suggest {num_suggestions} books they would enjoy. For each:
+1. Book title and author
+2. A specific reason connecting to their reading history
 
-Return the suggestions as a numbered list."""
+Return as a numbered list: "1. **Title** by Author - reason"
+"""
 
 # Load custom prompt from file if it exists
 PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompts')
