@@ -15,10 +15,37 @@ class Database:
             title TEXT NOT NULL,
             author TEXT NOT NULL,
             read_date TEXT,
-            status TEXT DEFAULT 'to-read'
+            status TEXT DEFAULT 'to-read',
+            cover_url TEXT,
+            genre TEXT,
+            date_added TEXT
         );
         """
         self.execute_query(query)
+        
+        # Create rejected_suggestions table for thumbs-down books
+        rejected_query = """
+        CREATE TABLE IF NOT EXISTS rejected_suggestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            author TEXT NOT NULL,
+            rejected_date TEXT,
+            reason TEXT
+        );
+        """
+        self.execute_query(rejected_query)
+        
+        # Add columns if they don't exist (for existing databases)
+        migrations = [
+            "ALTER TABLE books ADD COLUMN cover_url TEXT",
+            "ALTER TABLE books ADD COLUMN genre TEXT",
+            "ALTER TABLE books ADD COLUMN date_added TEXT"
+        ]
+        for migration in migrations:
+            try:
+                self.execute_query(migration)
+            except:
+                pass  # Column already exists
 
     def fetch_all(self, query, parameters=()):
         cursor = self.connection.cursor()

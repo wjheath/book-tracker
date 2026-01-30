@@ -140,6 +140,25 @@ def update_book_status(book_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/books/<int:book_id>/cover', methods=['PUT'])
+def update_book_cover(book_id):
+    """Update a book's cover URL"""
+    try:
+        data = request.json
+        cover_url = data.get('cover_url', '').strip()
+        
+        if not cover_url:
+            return jsonify({'success': False, 'error': 'Cover URL is required'}), 400
+        
+        db = get_db()
+        query = "UPDATE books SET cover_url = ? WHERE id = ?"
+        db.execute_query(query, (cover_url, book_id))
+        db.close()
+        
+        return jsonify({'success': True, 'message': 'Cover updated'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/suggestions', methods=['GET'])
 def get_suggestions():
     """Get book suggestions based on reading history"""
@@ -158,12 +177,21 @@ def get_suggestions():
         read_books = [b for b in all_books if b['status'] == 'read']
         
         if not read_books:
+            db.close()
             return jsonify({
                 'success': False,
                 'error': 'You need to have read some books to get suggestions.'
             }), 400
         
-        suggestions = suggester.suggest_books(read_books, all_books=all_books, num_suggestions=num_suggestions)
+        # Get rejected books to exclude from suggestions
+        rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
+        
+        suggestions = suggester.suggest_books(
+            read_books, 
+            all_books=all_books, 
+            rejected_books=rejected_books,
+            num_suggestions=num_suggestions
+        )
         db.close()
         
         return jsonify({
@@ -171,6 +199,108 @@ def get_suggestions():
             'suggestions': suggestions,
             'count': len(suggestions)
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/suggestions/add', methods=['POST'])
+def add_suggestion_to_library():
+    """Add a suggested book to the library as 'to-read'"""
+    try:
+        data = request.json
+        title = data.get('title', '').strip()
+        author = data.get('author', '').strip()
+        
+        if not title or not author:
+            return jsonify({'success': False, 'error': 'Title and author are required'}), 400
+        
+        book_manager, db = get_book_manager()
+        
+        # Check if book already exists
+        existing = db.fetch_all(
+            "SELECT id FROM books WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
+            (title, author)
+        )
+        
+        if existing:
+            db.close()
+            return jsonify({'success': False, 'error': 'Book already in your library'}), 400
+        
+        # Add with today's date as date_added
+        from datetime import datetime
+        date_added = datetime.now().strftime('%Y-%m-%d')
+        
+        db.execute_query(
+            "INSERT INTO books (title, author, status, date_added) VALUES (?, ?, 'to-read', ?)",
+            (title, author, date_added)
+        )
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Added "{title}" to your reading list!'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/suggestions/reject', methods=['POST'])
+def reject_suggestion():
+    """Reject a suggestion so it won't be suggested again"""
+    try:
+        data = request.json
+        title = data.get('title', '').strip()
+        author = data.get('author', '').strip()
+        reason = data.get('reason', '').strip()
+        
+        if not title or not author:
+            return jsonify({'success': False, 'error': 'Title and author are required'}), 400
+        
+        db = get_db()
+        
+        # Check if already rejected
+        existing = db.fetch_all(
+            "SELECT id FROM rejected_suggestions WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
+            (title, author)
+        )
+        
+        if existing:
+            db.close()
+            return jsonify({'success': True, 'message': 'Already rejected'})
+        
+        from datetime import datetime
+        rejected_date = datetime.now().strftime('%Y-%m-%d')
+        
+        db.execute_query(
+            "INSERT INTO rejected_suggestions (title, author, rejected_date, reason) VALUES (?, ?, ?, ?)",
+            (title, author, rejected_date, reason)
+        )
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'message': f'"{title}" will not be suggested again'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/rejected', methods=['GET'])
+def get_rejected():
+    """Get list of rejected suggestions"""
+    try:
+        db = get_db()
+        rejected = db.fetch_all("SELECT * FROM rejected_suggestions ORDER BY rejected_date DESC")
+        db.close()
+        return jsonify({'success': True, 'rejected': rejected, 'count': len(rejected)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/rejected/<int:rejected_id>', methods=['DELETE'])
+def remove_rejected(rejected_id):
+    """Remove a book from the rejected list"""
+    try:
+        db = get_db()
+        db.execute_query("DELETE FROM rejected_suggestions WHERE id = ?", (rejected_id,))
+        db.close()
+        return jsonify({'success': True, 'message': 'Removed from rejected list'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
