@@ -83,6 +83,46 @@
             font-weight: bold;
         }
 
+        /* Nav Tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 30px;
+            background: white;
+            border-radius: 12px;
+            padding: 6px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-tab {
+            flex: 1;
+            padding: 14px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s;
+            background: transparent;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .nav-tab:hover {
+            background: var(--light);
+            color: var(--dark);
+            transform: none;
+            box-shadow: none;
+        }
+
+        .nav-tab.active {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+        }
+
+        .tab-page { display: none; }
+        .tab-page.active { display: block; }
+
         .main-content {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -167,6 +207,7 @@
 
         button.secondary:hover {
             background: var(--border);
+            box-shadow: none;
         }
 
         .filter-tabs {
@@ -200,7 +241,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            transition: background 0.2s;
+            transition: background 0.2s, opacity 0.3s, transform 0.3s;
+            gap: 15px;
         }
 
         .book-item:last-child {
@@ -287,21 +329,6 @@
         .status-dropdown:focus {
             outline: none;
             border-color: var(--primary);
-        }
-
-        .status-dropdown option {
-            padding: 8px;
-        }
-
-        /* Book cover styles */
-        .book-item {
-            padding: 15px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: background 0.2s;
-            gap: 15px;
         }
 
         .book-cover {
@@ -426,15 +453,6 @@
             border-left-color: var(--danger);
         }
 
-        .suggestion-tag {
-            color: var(--warning);
-            font-size: 12px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(245, 158, 11, 0.2);
-            font-weight: 500;
-        }
-
         .loading {
             text-align: center;
             padding: 40px;
@@ -489,14 +507,6 @@
         .empty-state-icon {
             font-size: 48px;
             margin-bottom: 15px;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
         }
 
         .section {
@@ -605,6 +615,288 @@
             padding: 4px 0;
         }
 
+        /* Toast notifications */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        .toast {
+            background: white;
+            border-radius: 8px;
+            padding: 14px 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease-out;
+            pointer-events: auto;
+            max-width: 400px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.info { border-left-color: #3b82f6; }
+
+        .toast.fade-out {
+            animation: slideOut 0.3s ease-in forwards;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+
+        /* Sort controls for library */
+        .sort-controls {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .sort-controls label {
+            margin-bottom: 0;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .sort-controls select {
+            width: auto;
+            padding: 6px 10px;
+            font-size: 13px;
+            border-radius: 6px;
+        }
+
+        /* ============== ADMIN MODE STYLES ============== */
+        .admin-toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .admin-toolbar button {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .admin-toolbar .toolbar-spacer {
+            flex: 1;
+        }
+
+        .admin-toolbar .record-count {
+            color: #6b7280;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .admin-search {
+            flex: 0 0 300px;
+        }
+
+        .admin-search input {
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .admin-table-wrapper {
+            overflow-x: auto;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .admin-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .admin-table th {
+            background: var(--dark);
+            color: white;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        .admin-table th:hover {
+            background: #374151;
+        }
+
+        .admin-table th .sort-icon {
+            margin-left: 4px;
+            opacity: 0.5;
+        }
+
+        .admin-table th .sort-icon.active {
+            opacity: 1;
+        }
+
+        .admin-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+            max-width: 300px;
+        }
+
+        .admin-table tr:hover {
+            background: #f0f0ff;
+        }
+
+        .admin-table tr.selected {
+            background: #ede9fe;
+        }
+
+        .admin-table td.editable {
+            cursor: text;
+            position: relative;
+        }
+
+        .admin-table td.editable:hover {
+            background: #fef3c7;
+            outline: 2px solid var(--warning);
+            outline-offset: -2px;
+        }
+
+        .admin-table td.editing {
+            padding: 2px;
+        }
+
+        .admin-table td.editing input,
+        .admin-table td.editing select {
+            width: 100%;
+            padding: 6px 8px;
+            border: 2px solid var(--primary);
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .admin-table td .cell-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .admin-table .checkbox-cell {
+            width: 40px;
+            text-align: center;
+        }
+
+        .admin-table .checkbox-cell input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .admin-table .id-cell {
+            width: 60px;
+            color: #9ca3af;
+            font-family: monospace;
+        }
+
+        .admin-table .status-cell {
+            width: 140px;
+        }
+
+        .admin-table .status-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .admin-table .actions-cell {
+            width: 80px;
+            text-align: center;
+        }
+
+        .admin-table .actions-cell button {
+            width: auto;
+            padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .admin-new-row {
+            background: #f0fdf4 !important;
+        }
+
+        .admin-new-row td {
+            padding: 4px 8px;
+        }
+
+        .admin-new-row input, .admin-new-row select {
+            padding: 6px 8px;
+            border: 2px solid var(--success);
+            border-radius: 4px;
+            font-size: 13px;
+            width: 100%;
+        }
+
+        .bulk-bar {
+            background: var(--dark);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        .bulk-bar .count {
+            font-weight: 600;
+        }
+
+        .bulk-bar button {
+            width: auto;
+            padding: 6px 14px;
+            font-size: 12px;
+        }
+
+        .bulk-bar .deselect {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+        }
+
+        .bulk-bar .deselect:hover {
+            background: rgba(255,255,255,0.1);
+            box-shadow: none;
+            transform: none;
+        }
+
         @media (max-width: 768px) {
             .two-column {
                 grid-template-columns: 1fr;
@@ -615,10 +907,25 @@
             header h1 {
                 font-size: 24px;
             }
+            .nav-tabs {
+                flex-wrap: wrap;
+            }
+            .nav-tab {
+                flex: 0 0 auto;
+            }
+            .admin-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .admin-search {
+                flex: 1 1 auto;
+            }
         }
     </style>
 </head>
 <body>
+    <div class="toast-container" id="toastContainer"></div>
+
     <div class="container">
         <header>
             <h1>📚 Book Tracker & Suggester</h1>
@@ -643,36 +950,105 @@
             </div>
         </header>
 
-        <div class="main-content">
-            <!-- Add Book Card -->
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="switchTab('library', this)">📖 Library</button>
+            <button class="nav-tab" onclick="switchTab('add', this)">➕ Add Book</button>
+            <button class="nav-tab" onclick="switchTab('suggestions', this)">🤖 AI Suggestions</button>
+            <button class="nav-tab" onclick="switchTab('import', this)">📥 Import</button>
+            <button class="nav-tab" onclick="switchTab('admin', this)">🔧 Admin</button>
+        </div>
+
+        <!-- ==================== LIBRARY TAB ==================== -->
+        <div class="tab-page active" id="tab-library">
             <div class="card">
-                <h2>➕ Add New Book</h2>
-                <form id="addBookForm">
-                    <div class="form-group">
-                        <label for="bookTitle">Book Title *</label>
-                        <input type="text" id="bookTitle" required placeholder="e.g., The Midnight Library">
+                <h2>📖 Your Library</h2>
+                
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search by title or author..." oninput="searchBooks()">
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                    <div class="filter-tabs" style="margin-bottom: 0;">
+                        <button class="filter-btn active" onclick="filterBooks(null, this)">All Books</button>
+                        <button class="filter-btn" onclick="filterBooks('read', this)">Read</button>
+                        <button class="filter-btn" onclick="filterBooks('to-read', this)">To Read</button>
+                        <button class="filter-btn" onclick="filterBooks('currently-reading', this)">Currently Reading</button>
                     </div>
-                    <div class="form-group">
-                        <label for="bookAuthor">Author *</label>
-                        <input type="text" id="bookAuthor" required placeholder="e.g., Matt Haig">
-                    </div>
-                    <div class="form-group">
-                        <label for="bookStatus">Status</label>
-                        <select id="bookStatus">
-                            <option value="to-read">To Read</option>
-                            <option value="currently-reading">Currently Reading</option>
-                            <option value="read">Read</option>
+                    <div class="sort-controls">
+                        <label>Sort:</label>
+                        <select onchange="sortBooks(this.value)" id="sortSelect">
+                            <option value="title-asc">Title A-Z</option>
+                            <option value="title-desc">Title Z-A</option>
+                            <option value="author-asc">Author A-Z</option>
+                            <option value="author-desc">Author Z-A</option>
+                            <option value="date-desc">Recently Read</option>
+                            <option value="date-asc">Oldest Read</option>
+                            <option value="id-desc" selected>Recently Added</option>
+                            <option value="id-asc">Oldest Added</option>
                         </select>
                     </div>
-                    <button type="submit">Add Book</button>
-                </form>
-                <div id="addBookMessage"></div>
-            </div>
+                </div>
 
-            <!-- Get Suggestions Card -->
+                <div id="bookListContainer" style="margin-top: 15px;">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 15px;">Loading your books...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== ADD BOOK TAB ==================== -->
+        <div class="tab-page" id="tab-add">
+            <div class="main-content">
+                <div class="card">
+                    <h2>➕ Add New Book</h2>
+                    <form id="addBookForm">
+                        <div class="form-group">
+                            <label for="bookTitle">Book Title *</label>
+                            <input type="text" id="bookTitle" required placeholder="e.g., The Midnight Library">
+                        </div>
+                        <div class="form-group">
+                            <label for="bookAuthor">Author *</label>
+                            <input type="text" id="bookAuthor" required placeholder="e.g., Matt Haig">
+                        </div>
+                        <div class="form-group">
+                            <label for="bookStatus">Status</label>
+                            <select id="bookStatus">
+                                <option value="to-read">To Read</option>
+                                <option value="currently-reading">Currently Reading</option>
+                                <option value="read">Read</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="readDateGroup" style="display: none;">
+                            <label for="bookReadDate">Read Date</label>
+                            <input type="date" id="bookReadDate">
+                        </div>
+                        <button type="submit">Add Book</button>
+                    </form>
+                    <div id="addBookMessage"></div>
+                </div>
+                <div class="card">
+                    <h2>💡 Quick Tips</h2>
+                    <div style="color: #6b7280; font-size: 14px; line-height: 1.8;">
+                        <p>• Books default to <strong>To Read</strong> status</p>
+                        <p>• Change status anytime from the Library tab</p>
+                        <p>• Read more books to get better AI suggestions</p>
+                        <p>• Use the <strong>Admin</strong> tab for bulk editing</p>
+                        <p>• Import from StoryGraph or Goodreads CSV exports</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== SUGGESTIONS TAB ==================== -->
+        <div class="tab-page" id="tab-suggestions">
             <div class="card">
                 <h2>🤖 Get AI Suggestions</h2>
-                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">Get personalized book recommendations based on your reading history.</p>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
+                    Get personalized book recommendations based on your reading history.
+                </p>
                 <div class="form-group">
                     <label for="numSuggestions">Number of Suggestions</label>
                     <select id="numSuggestions">
@@ -687,89 +1063,167 @@
             </div>
         </div>
 
-        <!-- Import Books Card -->
-        <div class="card" style="margin-top: 30px;">
-            <h2>📥 Import Books</h2>
-            <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">Import your reading list from StoryGraph or Goodreads CSV exports.</p>
-            
-            <div class="drop-zone" id="dropZone">
-                <div class="drop-zone-icon">📄</div>
-                <div class="drop-zone-text">Drop your CSV file here</div>
-                <div class="drop-zone-hint">or click to browse</div>
+        <!-- ==================== IMPORT TAB ==================== -->
+        <div class="tab-page" id="tab-import">
+            <div class="card">
+                <h2>📥 Import Books</h2>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
+                    Import your reading list from StoryGraph or Goodreads CSV exports. Duplicates are automatically skipped.
+                </p>
+                
+                <div class="drop-zone" id="dropZone">
+                    <div class="drop-zone-icon">📄</div>
+                    <div class="drop-zone-text">Drop your CSV file here</div>
+                    <div class="drop-zone-hint">or click to browse</div>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept=".csv">
+                
+                <div id="importMessage"></div>
+                <div id="importResults"></div>
             </div>
-            <input type="file" id="fileInput" class="file-input" accept=".csv">
-            
-            <div id="importMessage"></div>
-            <div id="importResults"></div>
         </div>
 
-        <!-- Book List Card -->
-        <div class="card" style="margin-top: 30px;">
-            <h2>📖 Your Library</h2>
-            
-            <div class="search-box">
-                <input type="text" class="search-input" id="searchInput" placeholder="🔍 Search by title or author..." oninput="searchBooks()">
-            </div>
-            
-            <div class="filter-tabs">
-                <button class="filter-btn active" onclick="filterBooks(null)">All Books</button>
-                <button class="filter-btn" onclick="filterBooks('read')">Read</button>
-                <button class="filter-btn" onclick="filterBooks('to-read')">To Read</button>
-                <button class="filter-btn" onclick="filterBooks('currently-reading')">Currently Reading</button>
-            </div>
+        <!-- ==================== ADMIN TAB ==================== -->
+        <div class="tab-page" id="tab-admin">
+            <div class="card">
+                <h2>🔧 Admin Mode — Database Editor</h2>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
+                    Edit your book database directly like a spreadsheet. Double-click any cell to edit. Changes save automatically.
+                </p>
 
-            <div id="bookListContainer">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p style="margin-top: 15px;">Loading your books...</p>
+                <div class="admin-toolbar">
+                    <div class="admin-search">
+                        <input type="text" class="search-input" id="adminSearchInput" 
+                               placeholder="🔍 Search database..." oninput="adminSearch()" 
+                               style="padding: 8px 12px; font-size: 13px;">
+                    </div>
+                    <div class="toolbar-spacer"></div>
+                    <span class="record-count" id="adminRecordCount"></span>
+                    <button onclick="adminAddRow()" style="width: auto; padding: 8px 16px; font-size: 13px; background: linear-gradient(135deg, var(--success) 0%, #059669 100%);">
+                        + Add Row
+                    </button>
+                    <button onclick="exportCSV()" class="secondary" style="width: auto; padding: 8px 16px; font-size: 13px;">
+                        📤 Export CSV
+                    </button>
+                    <button onclick="adminRefresh()" class="secondary" style="width: auto; padding: 8px 16px; font-size: 13px;">
+                        🔄 Refresh
+                    </button>
+                </div>
+
+                <div id="bulkBar" style="display: none;"></div>
+
+                <div class="admin-table-wrapper">
+                    <table class="admin-table" id="adminTable">
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell"><input type="checkbox" onchange="adminToggleAll(this)"></th>
+                                <th class="id-cell" onclick="adminSort('id')">ID <span class="sort-icon" data-col="id">↕</span></th>
+                                <th onclick="adminSort('title')">Title <span class="sort-icon" data-col="title">↕</span></th>
+                                <th onclick="adminSort('author')">Author <span class="sort-icon" data-col="author">↕</span></th>
+                                <th class="status-cell" onclick="adminSort('status')">Status <span class="sort-icon" data-col="status">↕</span></th>
+                                <th onclick="adminSort('read_date')">Read Date <span class="sort-icon" data-col="read_date">↕</span></th>
+                                <th onclick="adminSort('genre')">Genre <span class="sort-icon" data-col="genre">↕</span></th>
+                                <th onclick="adminSort('date_added')">Date Added <span class="sort-icon" data-col="date_added">↕</span></th>
+                                <th class="actions-cell">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminTableBody">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
         <footer>
-            <p>📚 Book Tracker App • Your personal reading companion</p>
+            <p>📚 Book Tracker App — Your personal reading companion</p>
         </footer>
     </div>
 
     <script>
-        const API_URL = 'http://127.0.0.1:5000/api';
+        // ============== CONFIGURATION ==============
+        // Use relative URLs to avoid cross-origin issues (KEY FIX)
+        const API_URL = '/api';
         let currentFilter = null;
         let allBooks = [];
         let searchQuery = '';
+        let currentSort = 'id-desc';
+
+        // Admin state
+        let adminBooks = [];
+        let adminSearchQuery = '';
+        let adminSortCol = 'id';
+        let adminSortDir = 'asc';
+        let adminSelected = new Set();
+        let adminEditingCell = null;
+
+        // ============== TOAST NOTIFICATIONS ==============
+        function toast(message, type = 'info', duration = 3500) {
+            const container = document.getElementById('toastContainer');
+            const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+            const el = document.createElement('div');
+            el.className = `toast ${type}`;
+            el.innerHTML = `<span>${icons[type] || ''}</span><span>${escapeHtml(message)}</span>`;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.classList.add('fade-out');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
+        }
+
+        // ============== TAB NAVIGATION ==============
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.getElementById('tab-' + tabName).classList.add('active');
+            if (btn) btn.classList.add('active');
+
+            if (tabName === 'admin') adminRefresh();
+            if (tabName === 'library') loadBooks();
+        }
+
+        // ============== UTILITY ==============
+        function escapeHtml(text) {
+            if (text == null) return '';
+            const str = String(text);
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return str.replace(/[&<>"']/g, m => map[m]);
+        }
+
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="alert alert-${type}" style="margin-top: 15px;">${message}</div>`;
+            setTimeout(() => { element.innerHTML = ''; }, 5000);
+        }
+
+        function formatStatus(status) {
+            const map = { 'read': '✅ Read', 'to-read': '📋 To Read', 'currently-reading': '📖 Reading' };
+            return map[status] || status;
+        }
+
+        // ============== BOOK STATUS DATE TOGGLE ==============
+        document.getElementById('bookStatus').addEventListener('change', function() {
+            document.getElementById('readDateGroup').style.display = this.value === 'read' ? 'block' : 'none';
+        });
 
         // ============== CSV IMPORT ==============
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
 
         dropZone.addEventListener('click', () => fileInput.click());
-
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drag-over');
-        });
-
-        dropZone.addEventListener('dragleave', () => {
-            dropZone.classList.remove('drag-over');
-        });
-
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('drag-over'); });
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropZone.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileUpload(files[0]);
-            }
+            if (e.dataTransfer.files.length > 0) handleFileUpload(e.dataTransfer.files[0]);
         });
-
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileUpload(e.target.files[0]);
-            }
+            if (e.target.files.length > 0) handleFileUpload(e.target.files[0]);
         });
 
         async function handleFileUpload(file) {
             if (!file.name.endsWith('.csv')) {
-                showMessage('importMessage', 'Please upload a CSV file', 'error');
+                toast('Please upload a CSV file', 'error');
                 return;
             }
 
@@ -778,18 +1232,13 @@
 
             dropZone.innerHTML = `
                 <div class="spinner"></div>
-                <div class="drop-zone-text" style="margin-top: 15px;">Importing ${file.name}...</div>
+                <div class="drop-zone-text" style="margin-top: 15px;">Importing ${escapeHtml(file.name)}...</div>
             `;
 
             try {
-                const response = await fetch(`${API_URL}/import`, {
-                    method: 'POST',
-                    body: formData
-                });
-
+                const response = await fetch(`${API_URL}/import`, { method: 'POST', body: formData });
                 const data = await response.json();
 
-                // Reset drop zone
                 dropZone.innerHTML = `
                     <div class="drop-zone-icon">📄</div>
                     <div class="drop-zone-text">Drop your CSV file here</div>
@@ -797,10 +1246,8 @@
                 `;
 
                 if (data.success) {
-                    showMessage('importMessage', `Successfully imported ${data.imported} books!`, 'success');
-                    
-                    // Show import details
-                    let resultsHtml = `<div class="import-results">
+                    toast(`Imported ${data.imported} books!`, 'success');
+                    document.getElementById('importResults').innerHTML = `<div class="import-results">
                         <h4>Import Summary</h4>
                         <ul>
                             <li>✅ Imported: ${data.imported} books</li>
@@ -808,13 +1255,10 @@
                             <li>📊 Total in library: ${data.total || 'N/A'}</li>
                         </ul>
                     </div>`;
-                    document.getElementById('importResults').innerHTML = resultsHtml;
-                    
-                    // Reload books and stats
                     loadBooks();
                     loadStats();
                 } else {
-                    showMessage('importMessage', data.error || 'Error importing file', 'error');
+                    toast(data.error || 'Error importing file', 'error');
                 }
             } catch (error) {
                 dropZone.innerHTML = `
@@ -822,13 +1266,12 @@
                     <div class="drop-zone-text">Drop your CSV file here</div>
                     <div class="drop-zone-hint">or click to browse</div>
                 `;
-                showMessage('importMessage', 'Error: ' + error.message, 'error');
+                toast('Error: ' + error.message, 'error');
             }
-
             fileInput.value = '';
         }
 
-        // ============== SEARCH ==============
+        // ============== SEARCH & FILTER & SORT ==============
         function searchBooks() {
             searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             renderFilteredBooks();
@@ -836,77 +1279,92 @@
 
         function renderFilteredBooks() {
             let filtered = allBooks;
-            
-            // Apply status filter
             if (currentFilter) {
                 filtered = filtered.filter(b => b.status === currentFilter);
             }
-            
-            // Apply search filter
             if (searchQuery) {
-                filtered = filtered.filter(b => 
-                    b.title.toLowerCase().includes(searchQuery) ||
-                    b.author.toLowerCase().includes(searchQuery)
+                filtered = filtered.filter(b =>
+                    (b.title || '').toLowerCase().includes(searchQuery) ||
+                    (b.author || '').toLowerCase().includes(searchQuery)
                 );
             }
-            
+            filtered = applySorting(filtered);
             renderBooks(filtered);
         }
 
-        // Initialize the app
+        function applySorting(books) {
+            const [field, dir] = currentSort.split('-');
+            const mult = dir === 'desc' ? -1 : 1;
+            return [...books].sort((a, b) => {
+                let va = a[field] || '';
+                let vb = b[field] || '';
+                if (field === 'id') return (a.id - b.id) * mult;
+                if (typeof va === 'string') va = va.toLowerCase();
+                if (typeof vb === 'string') vb = vb.toLowerCase();
+                if (va < vb) return -1 * mult;
+                if (va > vb) return 1 * mult;
+                return 0;
+            });
+        }
+
+        function sortBooks(value) {
+            currentSort = value;
+            renderFilteredBooks();
+        }
+
+        // ============== INIT ==============
         document.addEventListener('DOMContentLoaded', () => {
             loadBooks();
             loadStats();
         });
 
-        // Add Book Form
+        // ============== ADD BOOK ==============
         document.getElementById('addBookForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const title = document.getElementById('bookTitle').value.trim();
             const author = document.getElementById('bookAuthor').value.trim();
             const status = document.getElementById('bookStatus').value;
+            const readDate = document.getElementById('bookReadDate').value || null;
 
             try {
                 const response = await fetch(`${API_URL}/books`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title, author, status })
+                    body: JSON.stringify({ title, author, status, read_date: readDate })
                 });
-
                 const data = await response.json();
 
                 if (data.success) {
-                    showMessage('addBookMessage', data.message, 'success');
+                    toast(`Added "${title}" by ${author}`, 'success');
                     document.getElementById('addBookForm').reset();
+                    document.getElementById('readDateGroup').style.display = 'none';
                     loadBooks();
                     loadStats();
                 } else {
-                    showMessage('addBookMessage', data.error || 'Error adding book', 'error');
+                    toast(data.error || 'Error adding book', 'error');
                 }
             } catch (error) {
-                showMessage('addBookMessage', 'Error: ' + error.message, 'error');
+                toast('Error: ' + error.message, 'error');
             }
         });
 
-        // Load books from API
+        // ============== LOAD BOOKS ==============
         async function loadBooks() {
             try {
-                // Always fetch all books, filter client-side for better search
                 const response = await fetch(`${API_URL}/books`);
                 const data = await response.json();
-
                 if (data.success) {
                     allBooks = data.books;
                     renderFilteredBooks();
                 }
             } catch (error) {
-                document.getElementById('bookListContainer').innerHTML = 
+                document.getElementById('bookListContainer').innerHTML =
                     `<div class="alert alert-error">Error loading books: ${error.message}</div>`;
             }
         }
 
-        // Render books list
+        // ============== RENDER BOOKS ==============
         function renderBooks(books) {
             const container = document.getElementById('bookListContainer');
 
@@ -916,24 +1374,25 @@
                         <div class="empty-state-icon">📚</div>
                         <h3>No books found</h3>
                         <p>Start by adding a book to your library!</p>
-                    </div>
-                `;
+                    </div>`;
                 return;
             }
 
             container.innerHTML = `
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 10px;">Showing ${books.length} book${books.length !== 1 ? 's' : ''}</p>
                 <div class="book-list">
                     ${books.map(book => `
-                        <div class="book-item">
+                        <div class="book-item" id="book-item-${book.id}">
                             <div class="book-content">
-                                ${book.cover_url ? 
-                                    `<img src="${book.cover_url}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>📖</div>'">` :
+                                ${book.cover_url ?
+                                    `<img src="${escapeHtml(book.cover_url)}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>📖</div>'">` :
                                     `<div class="book-cover-placeholder" data-book-id="${book.id}" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author)}">📖</div>`
                                 }
                                 <div class="book-info">
                                     <div class="book-title">${escapeHtml(book.title)}</div>
                                     <div class="book-author">by ${escapeHtml(book.author)}</div>
-                                    ${book.read_date ? `<div class="book-date">📅 Read: ${book.read_date}</div>` : ''}
+                                    ${book.read_date ? `<div class="book-date">📅 Read: ${escapeHtml(book.read_date)}</div>` : ''}
+                                    ${book.genre ? `<div style="color: #9ca3af; font-size: 11px; margin-top: 2px;">📂 ${escapeHtml(book.genre)}</div>` : ''}
                                 </div>
                             </div>
                             <div class="book-actions">
@@ -942,118 +1401,109 @@
                                     <option value="currently-reading" ${book.status === 'currently-reading' ? 'selected' : ''}>📖 Reading</option>
                                     <option value="read" ${book.status === 'read' ? 'selected' : ''}>✅ Read</option>
                                 </select>
-                                <button class="delete-btn" onclick="deleteBook(${book.id})">Delete</button>
+                                <button class="delete-btn" onclick="deleteBook(${book.id})">🗑️</button>
                             </div>
                         </div>
                     `).join('')}
-                </div>
-            `;
-            
-            // Fetch covers for books that don't have them
+                </div>`;
+
             fetchMissingCovers();
         }
 
-        // Filter books by status
-        function filterBooks(status) {
+        // ============== FILTER (FIXED: no implicit event) ==============
+        function filterBooks(status, btnElement) {
             currentFilter = status;
-            
-            // Update active button
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
-
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
             renderFilteredBooks();
         }
 
-        // Delete book
+        // ============== DELETE BOOK (FIXED) ==============
         async function deleteBook(bookId) {
-            if (!confirm('Are you sure you want to delete this book?')) return;
+            const book = allBooks.find(b => b.id === bookId);
+            const title = book ? book.title : 'this book';
+            if (!confirm(`Delete "${title}"?`)) return;
+
+            // Optimistic UI: fade out immediately
+            const el = document.getElementById('book-item-' + bookId);
+            if (el) {
+                el.style.transition = 'opacity 0.3s, transform 0.3s';
+                el.style.opacity = '0';
+                el.style.transform = 'translateX(50px)';
+            }
 
             try {
-                const response = await fetch(`${API_URL}/books/${bookId}`, {
-                    method: 'DELETE'
-                });
-
+                const response = await fetch(`${API_URL}/books/${bookId}`, { method: 'DELETE' });
                 const data = await response.json();
 
                 if (data.success) {
-                    loadBooks();
+                    // Remove from local state so re-renders don't bring it back
+                    allBooks = allBooks.filter(b => b.id !== bookId);
+                    toast('Book deleted', 'success');
+                    renderFilteredBooks();
                     loadStats();
+                } else {
+                    // Revert optimistic removal on failure
+                    if (el) { el.style.opacity = '1'; el.style.transform = 'none'; }
+                    toast(data.error || 'Failed to delete book', 'error');
                 }
             } catch (error) {
-                alert('Error deleting book: ' + error.message);
+                if (el) { el.style.opacity = '1'; el.style.transform = 'none'; }
+                toast('Error deleting book: ' + error.message, 'error');
             }
         }
 
-        // Update book status directly from dropdown
+        // ============== UPDATE STATUS ==============
         async function updateStatus(bookId, newStatus) {
             try {
                 const body = { status: newStatus };
-                
-                // If changing to 'read', add today's date
                 if (newStatus === 'read') {
                     const today = new Date();
-                    const month = String(today.getMonth() + 1).padStart(2, '0');
-                    const day = String(today.getDate()).padStart(2, '0');
-                    const year = today.getFullYear();
-                    body.read_date = `${month}/${day}/${year}`;
+                    body.read_date = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
                 }
-                
+
                 const response = await fetch(`${API_URL}/books/${bookId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)
                 });
-
                 const data = await response.json();
 
                 if (data.success) {
-                    // Update local state without full reload for smoother UX
                     const book = allBooks.find(b => b.id === bookId);
                     if (book) {
                         book.status = newStatus;
-                        if (newStatus === 'read') {
-                            const today = new Date();
-                            book.read_date = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
-                        }
+                        if (newStatus === 'read' && body.read_date) book.read_date = body.read_date;
                     }
+                    toast(`Status updated to ${formatStatus(newStatus)}`, 'success');
                     loadStats();
                     renderFilteredBooks();
+                } else {
+                    toast('Failed to update status', 'error');
                 }
             } catch (error) {
-                alert('Error updating status: ' + error.message);
+                toast('Error updating status: ' + error.message, 'error');
             }
         }
 
-        // Fetch book covers from Open Library
+        // ============== BOOK COVERS ==============
         async function fetchMissingCovers() {
             const placeholders = document.querySelectorAll('.book-cover-placeholder[data-book-id]');
-            
             for (const placeholder of placeholders) {
                 const bookId = placeholder.dataset.bookId;
                 const title = placeholder.dataset.title;
                 const author = placeholder.dataset.author;
-                
-                // Check if we already have a cover cached
                 const book = allBooks.find(b => b.id == bookId);
                 if (book && book.cover_url) continue;
-                
+
                 try {
                     const coverUrl = await fetchCoverUrl(title, author);
                     if (coverUrl) {
-                        // Update the placeholder with the actual cover
                         placeholder.outerHTML = `<img src="${coverUrl}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>📖</div>'">`;
-                        
-                        // Cache in local state
                         if (book) book.cover_url = coverUrl;
-                        
-                        // Optionally save to backend
                         saveCoverUrl(bookId, coverUrl);
                     }
-                } catch (e) {
-                    // Silently fail for covers
-                }
+                } catch (e) { /* silently fail */ }
             }
         }
 
@@ -1062,13 +1512,10 @@
                 const query = encodeURIComponent(`${title} ${author}`);
                 const response = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=1`);
                 const data = await response.json();
-                
                 if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
                     return `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-M.jpg`;
                 }
-            } catch (e) {
-                console.log('Could not fetch cover for:', title);
-            }
+            } catch (e) { }
             return null;
         }
 
@@ -1079,64 +1526,48 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ cover_url: coverUrl })
                 });
-            } catch (e) {
-                // Silently fail
-            }
+            } catch (e) { }
         }
 
-        // Get suggestions
+        // ============== SUGGESTIONS ==============
         async function getSuggestions() {
             const btn = document.getElementById('getSuggestionsBtn');
             const numSuggestions = document.getElementById('numSuggestions').value;
-            
+
             btn.disabled = true;
-            btn.textContent = 'Refreshing library...';
-            
-            // First refresh the book list to ensure we have latest data
-            await loadBooks();
-            
             btn.textContent = 'Getting suggestions...';
 
             try {
                 const response = await fetch(`${API_URL}/suggestions?num=${numSuggestions}`);
                 const data = await response.json();
-
-                const suggestionsContainer = document.getElementById('suggestionsContainer');
+                const container = document.getElementById('suggestionsContainer');
 
                 if (data.success) {
                     if (data.suggestions.length === 0) {
-                        suggestionsContainer.innerHTML = `
-                            <div class="alert alert-info">No suggestions available at this time.</div>
-                        `;
+                        container.innerHTML = `<div class="alert alert-info">No suggestions available at this time.</div>`;
                     } else {
-                        suggestionsContainer.innerHTML = `
-                            <div style="margin-top: 20px;">
-                                ${data.suggestions.map((suggestion, index) => `
-                                    <div class="suggestion-card" id="suggestion-${index}" data-title="${escapeHtml(suggestion.title || '')}" data-author="${escapeHtml(suggestion.author || '')}">
-                                        <div class="suggestion-title">${escapeHtml(suggestion.title || 'Unknown Title')}</div>
-                                        <div class="suggestion-author">by ${escapeHtml(suggestion.author || 'Unknown Author')}</div>
-                                        ${suggestion.summary ? `<div class="suggestion-summary">${escapeHtml(suggestion.summary)}</div>` : ''}
-                                        ${suggestion.reason ? `<div class="suggestion-reason">${escapeHtml(suggestion.reason)}</div>` : ''}
-                                        <div class="suggestion-actions">
-                                            <button class="add-to-library-btn" onclick="addSuggestionToLibrary(${index})">
-                                                📚 Add to Reading List
-                                            </button>
-                                            <button class="reject-btn" onclick="rejectSuggestion(${index})">
-                                                👎 Not Interested
-                                            </button>
-                                        </div>
+                        container.innerHTML = `<div style="margin-top: 20px;">
+                            ${data.suggestions.map((s, i) => `
+                                <div class="suggestion-card" id="suggestion-${i}" data-title="${escapeHtml(s.title || '')}" data-author="${escapeHtml(s.author || '')}">
+                                    <div class="suggestion-title">${escapeHtml(s.title || 'Unknown Title')}</div>
+                                    <div class="suggestion-author">by ${escapeHtml(s.author || 'Unknown Author')}</div>
+                                    ${s.summary ? `<div class="suggestion-summary">${escapeHtml(s.summary)}</div>` : ''}
+                                    ${s.reason ? `<div class="suggestion-reason">${escapeHtml(s.reason)}</div>` : ''}
+                                    <div class="suggestion-actions">
+                                        <button class="add-to-library-btn" onclick="addSuggestionToLibrary(${i})">📚 Add to Reading List</button>
+                                        <button class="reject-btn" onclick="rejectSuggestion(${i})">👎 Not Interested</button>
                                     </div>
-                                `).join('')}
-                            </div>
-                        `;
+                                </div>
+                            `).join('')}
+                        </div>`;
                     }
-                    showMessage('suggestionsMessage', `Got ${data.suggestions.length} suggestions!`, 'success');
+                    toast(`Got ${data.suggestions.length} suggestions!`, 'success');
                 } else {
-                    showMessage('suggestionsMessage', data.error || 'Error getting suggestions', 'error');
-                    suggestionsContainer.innerHTML = '';
+                    toast(data.error || 'Error getting suggestions', 'error');
+                    container.innerHTML = '';
                 }
             } catch (error) {
-                showMessage('suggestionsMessage', 'Error: ' + error.message, 'error');
+                toast('Error: ' + error.message, 'error');
                 document.getElementById('suggestionsContainer').innerHTML = '';
             } finally {
                 btn.disabled = false;
@@ -1144,72 +1575,61 @@
             }
         }
 
-        // Add suggestion to library
         async function addSuggestionToLibrary(index) {
             const card = document.getElementById(`suggestion-${index}`);
             const title = card.dataset.title;
             const author = card.dataset.author;
-            
             const btn = card.querySelector('.add-to-library-btn');
             btn.disabled = true;
             btn.textContent = 'Adding...';
-            
+
             try {
                 const response = await fetch(`${API_URL}/suggestions/add`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, author })
                 });
-                
                 const data = await response.json();
-                
+
                 if (data.success) {
                     card.classList.add('added');
-                    card.querySelector('.suggestion-actions').innerHTML = `
-                        <div class="alert alert-success" style="margin: 0; text-align: center;">
-                            ✅ Added to your reading list!
-                        </div>
-                    `;
+                    card.querySelector('.suggestion-actions').innerHTML =
+                        `<div class="alert alert-success" style="margin: 0; text-align: center;">✅ Added to your reading list!</div>`;
+                    toast(`Added "${title}"`, 'success');
                     loadStats();
                     loadBooks();
                 } else {
                     btn.disabled = false;
                     btn.textContent = '📚 Add to Reading List';
-                    alert(data.error || 'Failed to add book');
+                    toast(data.error || 'Failed to add book', 'error');
                 }
             } catch (error) {
                 btn.disabled = false;
                 btn.textContent = '📚 Add to Reading List';
-                alert('Error: ' + error.message);
+                toast('Error: ' + error.message, 'error');
             }
         }
 
-        // Reject suggestion
         async function rejectSuggestion(index) {
             const card = document.getElementById(`suggestion-${index}`);
             const title = card.dataset.title;
             const author = card.dataset.author;
-            
             const btn = card.querySelector('.reject-btn');
             btn.disabled = true;
             btn.textContent = 'Rejecting...';
-            
+
             try {
                 const response = await fetch(`${API_URL}/suggestions/reject`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ title, author })
                 });
-                
                 const data = await response.json();
-                
+
                 if (data.success) {
                     card.classList.add('rejected');
-                    card.querySelector('.suggestion-actions').innerHTML = `
-                        <div class="alert" style="margin: 0; text-align: center; background: #fee2e2; color: #991b1b;">
-                            🚫 Won't suggest this again
-                        </div>
-                    `;
+                    card.querySelector('.suggestion-actions').innerHTML =
+                        `<div class="alert" style="margin: 0; text-align: center; background: #fee2e2; color: #991b1b;">🚫 Won't suggest this again</div>`;
                 } else {
                     btn.disabled = false;
                     btn.textContent = '👎 Not Interested';
@@ -1220,12 +1640,11 @@
             }
         }
 
-        // Load stats
+        // ============== LOAD STATS ==============
         async function loadStats() {
             try {
                 const response = await fetch(`${API_URL}/books`);
                 const data = await response.json();
-
                 if (data.success && data.stats) {
                     document.getElementById('totalBooks').textContent = data.stats.total;
                     document.getElementById('readBooks').textContent = data.stats.read;
@@ -1237,34 +1656,418 @@
             }
         }
 
-        // Utility functions
-        function showMessage(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
-            
-            setTimeout(() => {
-                element.innerHTML = '';
-            }, 5000);
+        // ====================================================================
+        //  ADMIN MODE — Spreadsheet-style database editor
+        // ====================================================================
+
+        async function adminRefresh() {
+            try {
+                const response = await fetch(`${API_URL}/books`);
+                const data = await response.json();
+                if (data.success) {
+                    adminBooks = data.books;
+                    adminSelected.clear();
+                    adminRender();
+                }
+            } catch (error) {
+                toast('Failed to load admin data', 'error');
+            }
         }
 
-        function formatStatus(status) {
-            const map = {
-                'read': '✓ Read',
-                'to-read': '○ To Read',
-                'currently-reading': '▶ Currently Reading'
-            };
-            return map[status] || status;
+        function adminSearch() {
+            adminSearchQuery = document.getElementById('adminSearchInput').value.toLowerCase().trim();
+            adminRender();
         }
 
-        function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
-            return text.replace(/[&<>"']/g, m => map[m]);
+        function adminSort(col) {
+            if (adminSortCol === col) {
+                adminSortDir = adminSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                adminSortCol = col;
+                adminSortDir = 'asc';
+            }
+            adminRender();
+        }
+
+        function getAdminFilteredBooks() {
+            let books = [...adminBooks];
+
+            if (adminSearchQuery) {
+                books = books.filter(b =>
+                    (b.title || '').toLowerCase().includes(adminSearchQuery) ||
+                    (b.author || '').toLowerCase().includes(adminSearchQuery) ||
+                    (b.genre || '').toLowerCase().includes(adminSearchQuery) ||
+                    (b.status || '').toLowerCase().includes(adminSearchQuery) ||
+                    String(b.id).includes(adminSearchQuery)
+                );
+            }
+
+            const col = adminSortCol;
+            const mult = adminSortDir === 'desc' ? -1 : 1;
+            books.sort((a, b) => {
+                let va = a[col] ?? '';
+                let vb = b[col] ?? '';
+                if (col === 'id') return (Number(va) - Number(vb)) * mult;
+                va = String(va).toLowerCase();
+                vb = String(vb).toLowerCase();
+                if (va < vb) return -1 * mult;
+                if (va > vb) return 1 * mult;
+                return 0;
+            });
+
+            return books;
+        }
+
+        function adminRender() {
+            const books = getAdminFilteredBooks();
+            const tbody = document.getElementById('adminTableBody');
+
+            // Update sort icons
+            document.querySelectorAll('.admin-table .sort-icon').forEach(icon => {
+                icon.classList.remove('active');
+                icon.textContent = '↕';
+            });
+            const activeIcon = document.querySelector(`.sort-icon[data-col="${adminSortCol}"]`);
+            if (activeIcon) {
+                activeIcon.classList.add('active');
+                activeIcon.textContent = adminSortDir === 'asc' ? '↑' : '↓';
+            }
+
+            document.getElementById('adminRecordCount').textContent =
+                `${books.length} of ${adminBooks.length} records`;
+
+            updateBulkBar();
+
+            if (books.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px; color: #9ca3af;">No records found</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = books.map(book => {
+                const isSelected = adminSelected.has(book.id);
+                const statusClass = {
+                    'read': 'status-read',
+                    'to-read': 'status-to-read',
+                    'currently-reading': 'status-currently-reading'
+                }[book.status] || '';
+
+                return `<tr class="${isSelected ? 'selected' : ''}" data-id="${book.id}">
+                    <td class="checkbox-cell">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="adminToggleRow(${book.id}, this.checked)">
+                    </td>
+                    <td class="id-cell">${book.id}</td>
+                    <td class="editable" ondblclick="adminEditCell(this, ${book.id}, 'title')">
+                        <div class="cell-text">${escapeHtml(book.title)}</div>
+                    </td>
+                    <td class="editable" ondblclick="adminEditCell(this, ${book.id}, 'author')">
+                        <div class="cell-text">${escapeHtml(book.author)}</div>
+                    </td>
+                    <td class="status-cell editable" ondblclick="adminEditCell(this, ${book.id}, 'status')">
+                        <span class="status-badge ${statusClass}">${escapeHtml(book.status)}</span>
+                    </td>
+                    <td class="editable" ondblclick="adminEditCell(this, ${book.id}, 'read_date')">
+                        <div class="cell-text">${escapeHtml(book.read_date)}</div>
+                    </td>
+                    <td class="editable" ondblclick="adminEditCell(this, ${book.id}, 'genre')">
+                        <div class="cell-text">${escapeHtml(book.genre)}</div>
+                    </td>
+                    <td class="editable" ondblclick="adminEditCell(this, ${book.id}, 'date_added')">
+                        <div class="cell-text">${escapeHtml(book.date_added)}</div>
+                    </td>
+                    <td class="actions-cell">
+                        <button class="delete-btn" onclick="adminDeleteRow(${book.id})" style="padding: 4px 8px; font-size: 11px;">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ============== ADMIN: INLINE CELL EDITING ==============
+        function adminEditCell(td, bookId, field) {
+            if (td.classList.contains('editing')) return;
+
+            // Close any other editing cell first
+            adminCommitEdit();
+
+            const book = adminBooks.find(b => b.id === bookId);
+            if (!book) return;
+
+            const currentValue = book[field] ?? '';
+            td.classList.add('editing');
+
+            if (field === 'status') {
+                td.innerHTML = `
+                    <select onchange="adminSaveCell(${bookId}, '${field}', this.value, this.parentElement)"
+                            onblur="setTimeout(() => adminCommitEdit(), 150)"
+                            onkeydown="if(event.key==='Escape') adminCommitEdit()">
+                        <option value="to-read" ${currentValue === 'to-read' ? 'selected' : ''}>to-read</option>
+                        <option value="currently-reading" ${currentValue === 'currently-reading' ? 'selected' : ''}>currently-reading</option>
+                        <option value="read" ${currentValue === 'read' ? 'selected' : ''}>read</option>
+                    </select>`;
+                td.querySelector('select').focus();
+            } else {
+                td.innerHTML = `
+                    <input type="text" value="${escapeHtml(currentValue)}"
+                           onblur="adminSaveCell(${bookId}, '${field}', this.value, this.parentElement)"
+                           onkeydown="if(event.key==='Enter') this.blur(); if(event.key==='Escape') adminCommitEdit();">`;
+                const input = td.querySelector('input');
+                input.focus();
+                input.select();
+            }
+
+            adminEditingCell = { td, bookId, field };
+        }
+
+        async function adminSaveCell(bookId, field, newValue, td) {
+            const book = adminBooks.find(b => b.id === bookId);
+            if (!book) return;
+
+            const oldValue = book[field] ?? '';
+            if (String(newValue).trim() === String(oldValue).trim()) {
+                adminCommitEdit();
+                return;
+            }
+
+            try {
+                const payload = {};
+                payload[field] = newValue.trim();
+
+                const response = await fetch(`${API_URL}/books/${bookId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+
+                if (data.success && data.book) {
+                    const idx = adminBooks.findIndex(b => b.id === bookId);
+                    if (idx >= 0) adminBooks[idx] = data.book;
+                    const aIdx = allBooks.findIndex(b => b.id === bookId);
+                    if (aIdx >= 0) allBooks[aIdx] = data.book;
+                    toast(`Updated ${field}`, 'success');
+                } else {
+                    toast(data.error || 'Failed to save', 'error');
+                }
+            } catch (error) {
+                toast('Save failed: ' + error.message, 'error');
+            }
+
+            adminEditingCell = null;
+            adminRender();
+            loadStats();
+        }
+
+        function adminCommitEdit() {
+            if (!adminEditingCell) return;
+            adminEditingCell = null;
+            adminRender();
+        }
+
+        // ============== ADMIN: ROW SELECTION ==============
+        function adminToggleRow(bookId, checked) {
+            if (checked) adminSelected.add(bookId);
+            else adminSelected.delete(bookId);
+            adminRender();
+        }
+
+        function adminToggleAll(checkbox) {
+            const filtered = getAdminFilteredBooks();
+            if (checkbox.checked) {
+                filtered.forEach(b => adminSelected.add(b.id));
+            } else {
+                adminSelected.clear();
+            }
+            adminRender();
+        }
+
+        function updateBulkBar() {
+            const bar = document.getElementById('bulkBar');
+            if (adminSelected.size === 0) {
+                bar.style.display = 'none';
+                return;
+            }
+            bar.style.display = 'flex';
+            bar.innerHTML = `
+                <span class="count">${adminSelected.size} selected</span>
+                <button class="delete-btn" onclick="adminBulkDelete()" style="width: auto; padding: 6px 14px; font-size: 12px;">
+                    🗑️ Delete Selected
+                </button>
+                <button onclick="adminBulkStatus('read')" style="width: auto; padding: 6px 14px; font-size: 12px; background: var(--success);">
+                    Set: Read
+                </button>
+                <button onclick="adminBulkStatus('to-read')" style="width: auto; padding: 6px 14px; font-size: 12px; background: var(--warning);">
+                    Set: To Read
+                </button>
+                <button onclick="adminBulkStatus('currently-reading')" style="width: auto; padding: 6px 14px; font-size: 12px; background: #3b82f6;">
+                    Set: Reading
+                </button>
+                <div style="flex:1;"></div>
+                <button class="deselect" onclick="adminSelected.clear(); adminRender();"
+                        style="width: auto; padding: 6px 14px; font-size: 12px;">
+                    Deselect All
+                </button>
+            `;
+        }
+
+        // ============== ADMIN: BULK OPERATIONS ==============
+        async function adminBulkDelete() {
+            const count = adminSelected.size;
+            if (!confirm(`Delete ${count} selected book${count !== 1 ? 's' : ''}? This cannot be undone.`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/books/bulk-delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: [...adminSelected] })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    toast(`Deleted ${data.deleted} books`, 'success');
+                    adminSelected.clear();
+                    await adminRefresh();
+                    loadBooks();
+                    loadStats();
+                } else {
+                    toast(data.error || 'Bulk delete failed', 'error');
+                }
+            } catch (error) {
+                toast('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function adminBulkStatus(newStatus) {
+            const ids = [...adminSelected];
+            let successes = 0;
+
+            for (const id of ids) {
+                try {
+                    const body = { status: newStatus };
+                    if (newStatus === 'read') {
+                        const today = new Date();
+                        body.read_date = `${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}/${today.getFullYear()}`;
+                    }
+                    const response = await fetch(`${API_URL}/books/${id}/status`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await response.json();
+                    if (data.success) successes++;
+                } catch (e) { }
+            }
+
+            toast(`Updated ${successes} of ${ids.length} books to "${newStatus}"`, 'success');
+            adminSelected.clear();
+            await adminRefresh();
+            loadBooks();
+            loadStats();
+        }
+
+        // ============== ADMIN: ADD ROW ==============
+        function adminAddRow() {
+            const tbody = document.getElementById('adminTableBody');
+
+            if (document.getElementById('admin-new-row')) {
+                document.getElementById('admin-new-row').querySelector('input')?.focus();
+                return;
+            }
+
+            const newRow = document.createElement('tr');
+            newRow.id = 'admin-new-row';
+            newRow.className = 'admin-new-row';
+            newRow.innerHTML = `
+                <td class="checkbox-cell"></td>
+                <td class="id-cell" style="color: var(--success); font-weight: bold;">NEW</td>
+                <td><input type="text" placeholder="Title *" id="newRowTitle"></td>
+                <td><input type="text" placeholder="Author *" id="newRowAuthor"></td>
+                <td>
+                    <select id="newRowStatus">
+                        <option value="to-read">to-read</option>
+                        <option value="currently-reading">currently-reading</option>
+                        <option value="read">read</option>
+                    </select>
+                </td>
+                <td><input type="text" placeholder="MM/DD/YYYY" id="newRowReadDate"></td>
+                <td><input type="text" placeholder="Genre" id="newRowGenre"></td>
+                <td><input type="text" placeholder="YYYY-MM-DD" id="newRowDateAdded"></td>
+                <td class="actions-cell" style="display: flex; gap: 4px;">
+                    <button onclick="adminSaveNewRow()" style="padding: 4px 8px; font-size: 11px; background: var(--success);">✓</button>
+                    <button onclick="document.getElementById('admin-new-row').remove()"
+                            style="padding: 4px 8px; font-size: 11px; background: var(--light); color: var(--dark);">✕</button>
+                </td>
+            `;
+
+            tbody.insertBefore(newRow, tbody.firstChild);
+            document.getElementById('newRowTitle').focus();
+
+            newRow.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') adminSaveNewRow();
+                if (e.key === 'Escape') newRow.remove();
+            });
+        }
+
+        async function adminSaveNewRow() {
+            const title = document.getElementById('newRowTitle').value.trim();
+            const author = document.getElementById('newRowAuthor').value.trim();
+            const status = document.getElementById('newRowStatus').value;
+            const readDate = document.getElementById('newRowReadDate').value.trim() || null;
+
+            if (!title || !author) {
+                toast('Title and author are required', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_URL}/books`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author, status, read_date: readDate })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    toast(`Added "${title}"`, 'success');
+                    const row = document.getElementById('admin-new-row');
+                    if (row) row.remove();
+                    await adminRefresh();
+                    loadBooks();
+                    loadStats();
+                } else {
+                    toast(data.error || 'Failed to add', 'error');
+                }
+            } catch (error) {
+                toast('Error: ' + error.message, 'error');
+            }
+        }
+
+        // ============== ADMIN: DELETE ROW ==============
+        async function adminDeleteRow(bookId) {
+            const book = adminBooks.find(b => b.id === bookId);
+            if (!confirm(`Delete "${book?.title || 'this book'}"?`)) return;
+
+            try {
+                const response = await fetch(`${API_URL}/books/${bookId}`, { method: 'DELETE' });
+                const data = await response.json();
+
+                if (data.success) {
+                    adminBooks = adminBooks.filter(b => b.id !== bookId);
+                    allBooks = allBooks.filter(b => b.id !== bookId);
+                    adminSelected.delete(bookId);
+                    toast('Row deleted', 'success');
+                    adminRender();
+                    loadStats();
+                } else {
+                    toast(data.error || 'Failed to delete', 'error');
+                }
+            } catch (error) {
+                toast('Error: ' + error.message, 'error');
+            }
+        }
+
+        // ============== ADMIN: EXPORT ==============
+        function exportCSV() {
+            window.open(`${API_URL}/books/export`, '_blank');
+            toast('Downloading CSV export...', 'info');
         }
     </script>
 </body>

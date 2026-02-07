@@ -140,6 +140,103 @@ def update_book_status(book_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/books/<int:book_id>', methods=['PUT'])
+def update_book(book_id):
+    """Update a book's full record (admin mode)"""
+    try:
+        data = request.json
+        db = get_db()
+        
+        # Check book exists
+        existing = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
+        if not existing:
+            db.close()
+            return jsonify({'success': False, 'error': 'Book not found'}), 404
+        
+        book = existing[0]
+        
+        # Update fields that were provided
+        title = data.get('title', book['title']).strip() if data.get('title') else book['title']
+        author = data.get('author', book['author']).strip() if data.get('author') else book['author']
+        status = data.get('status', book['status']).strip().lower() if data.get('status') else book['status']
+        read_date = data.get('read_date', book.get('read_date'))
+        genre = data.get('genre', book.get('genre'))
+        cover_url = data.get('cover_url', book.get('cover_url'))
+        date_added = data.get('date_added', book.get('date_added'))
+        
+        if not title or not author:
+            db.close()
+            return jsonify({'success': False, 'error': 'Title and author are required'}), 400
+        
+        if status not in ['read', 'to-read', 'currently-reading']:
+            db.close()
+            return jsonify({'success': False, 'error': 'Invalid status'}), 400
+        
+        query = """UPDATE books 
+                   SET title = ?, author = ?, status = ?, read_date = ?, 
+                       genre = ?, cover_url = ?, date_added = ?
+                   WHERE id = ?"""
+        db.execute_query(query, (title, author, status, read_date, genre, cover_url, date_added, book_id))
+        
+        # Fetch updated record
+        updated = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
+        db.close()
+        
+        return jsonify({'success': True, 'book': updated[0] if updated else None, 'message': 'Book updated'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/books/bulk-delete', methods=['POST'])
+def bulk_delete_books():
+    """Delete multiple books at once (admin mode)"""
+    try:
+        data = request.json
+        book_ids = data.get('ids', [])
+        
+        if not book_ids:
+            return jsonify({'success': False, 'error': 'No book IDs provided'}), 400
+        
+        db = get_db()
+        placeholders = ','.join('?' * len(book_ids))
+        query = f"DELETE FROM books WHERE id IN ({placeholders})"
+        db.execute_query(query, tuple(book_ids))
+        db.close()
+        
+        return jsonify({'success': True, 'message': f'Deleted {len(book_ids)} books', 'deleted': len(book_ids)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/books/export', methods=['GET'])
+def export_books():
+    """Export all books as CSV"""
+    try:
+        book_manager, db = get_book_manager()
+        all_books = book_manager.list_books()
+        db.close()
+        
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=['id', 'title', 'author', 'status', 'read_date', 'genre', 'date_added'])
+        writer.writeheader()
+        for book in all_books:
+            writer.writerow({
+                'id': book.get('id', ''),
+                'title': book.get('title', ''),
+                'author': book.get('author', ''),
+                'status': book.get('status', ''),
+                'read_date': book.get('read_date', ''),
+                'genre': book.get('genre', ''),
+                'date_added': book.get('date_added', '')
+            })
+        
+        from flask import Response
+        return Response(
+            output.getvalue(),
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename=books_export.csv'}
+        )
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/books/<int:book_id>/cover', methods=['PUT'])
 def update_book_cover(book_id):
     """Update a book's cover URL"""
