@@ -34,6 +34,31 @@ class Database:
         );
         """
         self.execute_query(rejected_query)
+
+        # Conversation memory tables for chat engine
+        conversations_query = """
+        CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            title TEXT,
+            messages TEXT DEFAULT '[]',
+            gathered_preferences TEXT DEFAULT '{}',
+            is_active INTEGER DEFAULT 1
+        );
+        """
+        self.execute_query(conversations_query)
+
+        # Reader profile cache (rebuilt periodically)
+        profile_query = """
+        CREATE TABLE IF NOT EXISTS reader_profile_cache (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            profile_data TEXT,
+            built_at TEXT,
+            book_count INTEGER
+        );
+        """
+        self.execute_query(profile_query)
         
         # Add columns if they don't exist (for existing databases)
         migrations = [

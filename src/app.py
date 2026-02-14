@@ -2,11 +2,16 @@ import os
 import sys
 import csv
 import io
+import json
+import traceback
+from datetime import datetime
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 from database import Database
 from book_manager import BookManager
 from llm_suggester import LLM_Suggester
+from chat_engine import BookChatEngine
+from reader_profile import ReaderProfile
 
 # Initialize Flask app with static folder
 app = Flask(__name__, static_folder=os.path.dirname(__file__), static_url_path='')
@@ -28,6 +33,18 @@ def get_llm_suggester():
         return LLM_Suggester()
     except Exception as e:
         return None
+
+# Singleton chat engine (reused across requests)
+_chat_engine = None
+def get_chat_engine():
+    global _chat_engine
+    if _chat_engine is None:
+        try:
+            _chat_engine = BookChatEngine()
+        except Exception as e:
+            print(f"Warning: Could not initialize chat engine: {e}")
+            return None
+    return _chat_engine
 
 # ============== WEB UI ROUTES ==============
 
@@ -507,6 +524,169 @@ def import_csv():
             'total': len(all_books)
         })
         
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# ============== CHAT API ENDPOINTS ==============
+
+@app.route('/api/chat', methods=['POST'])
+def chat_message():
+    """Send a message to the conversational book recommendation engine"""
+    try:
+        data = request.json
+        message = data.get('message', '').strip()
+        conversation_id = data.get('conversation_id')
+        
+        if not message:
+            return jsonify({'success': False, 'error': 'Message is required'}), 400
+        
+        engine = get_chat_engine()
+        if not engine or not engine.graph:
+            return jsonify({
+                'success': False,
+                'error': 'Chat engine not available. Please check your OpenAI API key.'
+            }), 400
+        
+        # Load conversation state from DB if continuing
+        db = get_db()
+        messages = []
+        gathered_preferences = {}
+        
+        if conversation_id:
+            convos = db.fetch_all(
+                "SELECT messages, gathered_preferences FROM conversations WHERE id = ?",
+                (conversation_id,)
+            )
+            if convos:
+                try:
+                    messages = json.loads(convos[0].get('messages', '[]'))
+                    gathered_preferences = json.loads(convos[0].get('gathered_preferences', '{}'))
+                except (json.JSONDecodeError, TypeError):
+                    messages = []
+                    gathered_preferences = {}
+        
+        # Get book data for context
+        book_manager, _ = get_book_manager()
+        all_books = book_manager.list_books()
+        read_books = [b for b in all_books if b.get('status') == 'read']
+        rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
+        
+        # Process message through LangGraph engine
+        result = engine.chat_sync(
+            message=message,
+            conversation_id=conversation_id,
+            messages=messages,
+            read_books=read_books,
+            all_books=all_books,
+            rejected_books=rejected_books,
+            gathered_preferences=gathered_preferences,
+        )
+        
+        # Save conversation state to DB
+        conv_id = result.get('conversation_id', conversation_id)
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Generate a title from the first user message
+        conv_title = message[:80] + ('...' if len(message) > 80 else '')
+        
+        if conversation_id:
+            db.execute_query(
+                "UPDATE conversations SET updated_at = ?, messages = ?, gathered_preferences = ? WHERE id = ?",
+                (now, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})), conv_id)
+            )
+        else:
+            db.execute_query(
+                "INSERT INTO conversations (id, created_at, updated_at, title, messages, gathered_preferences) VALUES (?, ?, ?, ?, ?, ?)",
+                (conv_id, now, now, conv_title, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})))
+            )
+        
+        db.close()
+        
+        return jsonify({
+            'success': True,
+            'response': result.get('response', ''),
+            'suggestions': result.get('suggestions', []),
+            'conversation_id': conv_id,
+            'intent': result.get('intent', ''),
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/chat/conversations', methods=['GET'])
+def list_conversations():
+    """List all conversations"""
+    try:
+        db = get_db()
+        convos = db.fetch_all(
+            "SELECT id, created_at, updated_at, title FROM conversations WHERE is_active = 1 ORDER BY updated_at DESC"
+        )
+        db.close()
+        return jsonify({'success': True, 'conversations': convos})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/chat/conversations/<conversation_id>', methods=['GET'])
+def get_conversation(conversation_id):
+    """Get a specific conversation with full message history"""
+    try:
+        db = get_db()
+        convos = db.fetch_all(
+            "SELECT * FROM conversations WHERE id = ?",
+            (conversation_id,)
+        )
+        db.close()
+        
+        if not convos:
+            return jsonify({'success': False, 'error': 'Conversation not found'}), 404
+        
+        convo = convos[0]
+        try:
+            convo['messages'] = json.loads(convo.get('messages', '[]'))
+            convo['gathered_preferences'] = json.loads(convo.get('gathered_preferences', '{}'))
+        except (json.JSONDecodeError, TypeError):
+            convo['messages'] = []
+            convo['gathered_preferences'] = {}
+        
+        return jsonify({'success': True, 'conversation': convo})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/chat/conversations/<conversation_id>', methods=['DELETE'])
+def delete_conversation(conversation_id):
+    """Delete a conversation"""
+    try:
+        db = get_db()
+        db.execute_query("DELETE FROM conversations WHERE id = ?", (conversation_id,))
+        db.close()
+        return jsonify({'success': True, 'message': 'Conversation deleted'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/profile', methods=['GET'])
+def get_reader_profile():
+    """Get the reader's DNA profile analysis"""
+    try:
+        book_manager, db = get_book_manager()
+        all_books = book_manager.list_books()
+        read_books = [b for b in all_books if b.get('status') == 'read']
+        db.close()
+        
+        if not read_books:
+            return jsonify({
+                'success': False,
+                'error': 'Need read books to build a profile'
+            }), 400
+        
+        profile = ReaderProfile(all_books, all_books)
+        profile_data = profile.build()
+        profile_text = profile.get_prompt_context()
+        
+        return jsonify({
+            'success': True,
+            'profile': profile_data,
+            'profile_text': profile_text,
+        })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

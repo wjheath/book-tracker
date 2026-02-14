@@ -920,6 +920,353 @@
             .admin-search {
                 flex: 1 1 auto;
             }
+            .chat-container {
+                height: 60vh;
+            }
+        }
+
+        /* ============== CHAT STYLES ============== */
+        .chat-layout {
+            display: grid;
+            grid-template-columns: 240px 1fr;
+            gap: 20px;
+            height: calc(100vh - 320px);
+            min-height: 500px;
+        }
+
+        @media (max-width: 900px) {
+            .chat-layout {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            .chat-sidebar {
+                max-height: 200px;
+            }
+        }
+
+        .chat-sidebar {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-sidebar h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6b7280;
+            margin-bottom: 12px;
+        }
+
+        .chat-sidebar-new {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .conversation-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .conversation-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            text-align: left;
+            font-size: 13px;
+            color: var(--dark);
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 8px;
+        }
+
+        .conversation-item:hover {
+            background: var(--light);
+        }
+
+        .conversation-item.active {
+            background: #ede9fe;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .conversation-item .conv-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .conversation-item .conv-date {
+            font-size: 11px;
+            color: #9ca3af;
+            white-space: nowrap;
+        }
+
+        .conversation-item .conv-delete {
+            opacity: 0;
+            background: none;
+            border: none;
+            color: var(--danger);
+            cursor: pointer;
+            padding: 0 4px;
+            font-size: 14px;
+            width: auto;
+            transition: opacity 0.2s;
+        }
+
+        .conversation-item:hover .conv-delete {
+            opacity: 1;
+        }
+
+        .chat-main {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chat-header h2 {
+            margin: 0;
+            font-size: 18px;
+            color: var(--dark);
+        }
+
+        .chat-header .intent-badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 12px;
+            background: #ede9fe;
+            color: var(--primary-dark);
+            font-weight: 600;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 12px;
+            max-width: 85%;
+            animation: chatFadeIn 0.3s ease-out;
+        }
+
+        @keyframes chatFadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .chat-message .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .chat-message.user .avatar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        }
+
+        .chat-message.assistant .avatar {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .chat-bubble {
+            padding: 12px 16px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .chat-message.user .chat-bubble {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-message.assistant .chat-bubble {
+            background: var(--light);
+            color: var(--dark);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message.assistant .chat-bubble .chat-suggestion {
+            background: white;
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--primary);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+        }
+
+        .chat-message.assistant .chat-bubble .chat-suggestion-title {
+            font-weight: 600;
+            color: var(--dark);
+        }
+
+        .chat-message.assistant .chat-bubble .chat-suggestion-author {
+            color: #6b7280;
+            font-size: 13px;
+        }
+
+        .chat-message.assistant .chat-bubble .chat-suggestion-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .chat-message.assistant .chat-bubble .chat-suggestion-actions button {
+            padding: 4px 12px;
+            font-size: 12px;
+            width: auto;
+            border-radius: 6px;
+        }
+
+        .chat-typing {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+
+        .chat-typing span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #9ca3af;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .chat-typing span:nth-child(2) { animation-delay: 0.2s; }
+        .chat-typing span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .chat-input-area {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            background: white;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .chat-input-area input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .chat-input-area button {
+            width: auto;
+            padding: 12px 20px;
+            border-radius: 24px;
+            font-size: 14px;
+        }
+
+        .chat-welcome {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            color: #6b7280;
+        }
+
+        .chat-welcome-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+
+        .chat-welcome h3 {
+            color: var(--dark);
+            margin-bottom: 10px;
+            font-size: 22px;
+        }
+
+        .chat-welcome p {
+            max-width: 400px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .chat-starters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            max-width: 500px;
+        }
+
+        .chat-starter {
+            padding: 8px 16px !important;
+            font-size: 13px !important;
+            width: auto !important;
+            border-radius: 20px !important;
+            background: var(--light) !important;
+            color: var(--dark) !important;
+            border: 1px solid var(--border) !important;
+            transition: all 0.2s !important;
+        }
+
+        .chat-starter:hover {
+            background: #ede9fe !important;
+            border-color: var(--primary) !important;
+            color: var(--primary-dark) !important;
+            transform: none !important;
+            box-shadow: none !important;
         }
     </style>
 </head>
@@ -954,7 +1301,8 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="switchTab('library', this)">📖 Library</button>
             <button class="nav-tab" onclick="switchTab('add', this)">➕ Add Book</button>
-            <button class="nav-tab" onclick="switchTab('suggestions', this)">🤖 AI Suggestions</button>
+            <button class="nav-tab" onclick="switchTab('chat', this)">💬 Book Chat</button>
+            <button class="nav-tab" onclick="switchTab('suggestions', this)">🎲 Feeling Lucky</button>
             <button class="nav-tab" onclick="switchTab('import', this)">📥 Import</button>
             <button class="nav-tab" onclick="switchTab('admin', this)">🔧 Admin</button>
         </div>
@@ -1042,12 +1390,59 @@
             </div>
         </div>
 
+        <!-- ==================== CHAT TAB ==================== -->
+        <div class="tab-page" id="tab-chat">
+            <div class="chat-layout">
+                <!-- Sidebar: Conversations -->
+                <div class="chat-sidebar">
+                    <h3>💬 Conversations</h3>
+                    <button class="chat-sidebar-new" onclick="chatNewConversation()">+ New Chat</button>
+                    <div class="conversation-list" id="conversationList">
+                        <div style="color: #9ca3af; font-size: 13px; text-align: center; padding: 20px;">
+                            No conversations yet
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Chat Area -->
+                <div class="chat-main">
+                    <div class="chat-header">
+                        <h2>📚 Book Chat</h2>
+                        <span class="intent-badge" id="chatIntentBadge" style="display: none;"></span>
+                    </div>
+
+                    <div class="chat-messages" id="chatMessages">
+                        <!-- Welcome state -->
+                        <div class="chat-welcome" id="chatWelcome">
+                            <div class="chat-welcome-icon">📚🤖</div>
+                            <h3>Your Personal Book Advisor</h3>
+                            <p>I know your reading history and tastes. Tell me what you're in the mood for, and I'll find your next perfect read through conversation.</p>
+                            <div class="chat-starters">
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">What should I read next?</button>
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">I want something like my recent reads</button>
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">I'm in the mood for something light</button>
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">Surprise me with something different</button>
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">What are my reading patterns?</button>
+                                <button class="chat-starter" onclick="chatSendStarter(this.textContent)">Find me a page-turner for vacation</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-area">
+                        <input type="text" id="chatInput" placeholder="Ask me about books, your library, or what to read next..." 
+                               onkeydown="if(event.key==='Enter' && !event.shiftKey) chatSend()">
+                        <button onclick="chatSend()" id="chatSendBtn">Send 📨</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================== SUGGESTIONS TAB ==================== -->
         <div class="tab-page" id="tab-suggestions">
             <div class="card">
-                <h2>🤖 Get AI Suggestions</h2>
+                <h2>🎲 Feeling Lucky — Quick AI Suggestions</h2>
                 <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
-                    Get personalized book recommendations based on your reading history.
+                    Get instant book recommendations based on your reading history. For a more personalized, conversational experience, try <strong>Book Chat</strong>!
                 </p>
                 <div class="form-group">
                     <label for="numSuggestions">Number of Suggestions</label>
@@ -1179,6 +1574,7 @@
 
             if (tabName === 'admin') adminRefresh();
             if (tabName === 'library') loadBooks();
+            if (tabName === 'chat') chatLoadConversations();
         }
 
         // ============== UTILITY ==============
@@ -2069,6 +2465,296 @@
             window.open(`${API_URL}/books/export`, '_blank');
             toast('Downloading CSV export...', 'info');
         }
+        // ============== ADMIN: EXPORT ==============
+        function exportCSV() {
+            window.open(`${API_URL}/books/export`, '_blank');
+            toast('Downloading CSV export...', 'info');
+        }
+
+        // ====================================================================
+        //  CHAT ENGINE — Conversational Book Recommendations
+        // ====================================================================
+
+        let chatConversationId = null;
+        let chatIsLoading = false;
+
+        // Load conversations when chat tab opens
+        async function chatLoadConversations() {
+            try {
+                const response = await fetch(`${API_URL}/chat/conversations`);
+                const data = await response.json();
+                const list = document.getElementById('conversationList');
+                
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    list.innerHTML = data.conversations.map(c => `
+                        <div class="conversation-item ${c.id === chatConversationId ? 'active' : ''}" 
+                             onclick="chatLoadConversation('${c.id}')">
+                            <span class="conv-title">${escapeHtml(c.title || 'Untitled')}</span>
+                            <button class="conv-delete" onclick="event.stopPropagation(); chatDeleteConversation('${c.id}')" title="Delete">×</button>
+                        </div>
+                    `).join('');
+                } else {
+                    list.innerHTML = '<div style="color: #9ca3af; font-size: 13px; text-align: center; padding: 20px;">No conversations yet</div>';
+                }
+            } catch (e) {
+                console.error('Failed to load conversations:', e);
+            }
+        }
+
+        // Start a new conversation
+        function chatNewConversation() {
+            chatConversationId = null;
+            const messagesEl = document.getElementById('chatMessages');
+            
+            // Show welcome screen
+            messagesEl.innerHTML = `
+                <div class="chat-welcome" id="chatWelcome">
+                    <div class="chat-welcome-icon">📚🤖</div>
+                    <h3>Your Personal Book Advisor</h3>
+                    <p>I know your reading history and tastes. Tell me what you're in the mood for, and I'll find your next perfect read through conversation.</p>
+                    <div class="chat-starters">
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">What should I read next?</button>
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">I want something like my recent reads</button>
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">I'm in the mood for something light</button>
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">Surprise me with something different</button>
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">What are my reading patterns?</button>
+                        <button class="chat-starter" onclick="chatSendStarter(this.textContent)">Find me a page-turner for vacation</button>
+                    </div>
+                </div>`;
+            
+            document.getElementById('chatIntentBadge').style.display = 'none';
+            document.getElementById('chatInput').value = '';
+            chatLoadConversations();
+        }
+
+        // Send a starter prompt
+        function chatSendStarter(text) {
+            document.getElementById('chatInput').value = text;
+            chatSend();
+        }
+
+        // Send a chat message
+        async function chatSend() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message || chatIsLoading) return;
+
+            chatIsLoading = true;
+            input.value = '';
+            
+            const sendBtn = document.getElementById('chatSendBtn');
+            sendBtn.disabled = true;
+            sendBtn.textContent = '...';
+
+            // Hide welcome screen
+            const welcome = document.getElementById('chatWelcome');
+            if (welcome) welcome.remove();
+
+            // Show user message
+            const messagesEl = document.getElementById('chatMessages');
+            messagesEl.innerHTML += `
+                <div class="chat-message user">
+                    <div class="avatar">👤</div>
+                    <div class="chat-bubble">${escapeHtml(message)}</div>
+                </div>`;
+
+            // Show typing indicator
+            messagesEl.innerHTML += `
+                <div class="chat-message assistant" id="chatTyping">
+                    <div class="avatar">📚</div>
+                    <div class="chat-bubble">
+                        <div class="chat-typing">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                </div>`;
+            
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+
+            try {
+                const response = await fetch(`${API_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        conversation_id: chatConversationId
+                    })
+                });
+                const data = await response.json();
+
+                // Remove typing indicator
+                const typing = document.getElementById('chatTyping');
+                if (typing) typing.remove();
+
+                if (data.success) {
+                    chatConversationId = data.conversation_id;
+
+                    // Show intent badge
+                    const badge = document.getElementById('chatIntentBadge');
+                    if (data.intent) {
+                        const intentLabels = {
+                            'recommendation': '🎯 Recommending',
+                            'context_response': '🔍 Understanding',
+                            'library_query': '📊 Library',
+                            'book_chat': '💬 Chatting',
+                            'off_topic': '⚠️ Off Topic'
+                        };
+                        badge.textContent = intentLabels[data.intent] || data.intent;
+                        badge.style.display = 'inline-block';
+                    }
+
+                    // Format and show assistant response
+                    let responseHtml = formatChatResponse(data.response, data.suggestions || []);
+                    
+                    messagesEl.innerHTML += `
+                        <div class="chat-message assistant">
+                            <div class="avatar">📚</div>
+                            <div class="chat-bubble">${responseHtml}</div>
+                        </div>`;
+
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                    chatLoadConversations();
+                } else {
+                    messagesEl.innerHTML += `
+                        <div class="chat-message assistant">
+                            <div class="avatar">📚</div>
+                            <div class="chat-bubble">❌ ${escapeHtml(data.error || 'Something went wrong')}</div>
+                        </div>`;
+                }
+            } catch (error) {
+                const typing = document.getElementById('chatTyping');
+                if (typing) typing.remove();
+                
+                messagesEl.innerHTML += `
+                    <div class="chat-message assistant">
+                        <div class="avatar">📚</div>
+                        <div class="chat-bubble">❌ Connection error. Please try again.</div>
+                    </div>`;
+            } finally {
+                chatIsLoading = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send 📨';
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            }
+        }
+
+        // Format chat response with suggestion cards
+        function formatChatResponse(text, suggestions) {
+            let html = escapeHtml(text);
+            
+            // If we have structured suggestions, render them as cards
+            if (suggestions && suggestions.length > 0) {
+                html += '<div style="margin-top: 12px;">';
+                suggestions.forEach((s, i) => {
+                    html += `
+                        <div class="chat-suggestion">
+                            <div class="chat-suggestion-title">${escapeHtml(s.title || '')}</div>
+                            <div class="chat-suggestion-author">by ${escapeHtml(s.author || '')}</div>
+                            ${s.summary ? `<div style="font-size: 13px; color: #374151; margin-top: 6px;">${escapeHtml(s.summary)}</div>` : ''}
+                            ${s.reason ? `<div style="font-size: 12px; color: var(--primary-dark); font-style: italic; margin-top: 4px;">💡 ${escapeHtml(s.reason)}</div>` : ''}
+                            <div class="chat-suggestion-actions">
+                                <button class="add-to-library-btn" onclick="chatAddToLibrary('${escapeHtml(s.title || '')}', '${escapeHtml(s.author || '')}', this)">📚 Add to Library</button>
+                                <button class="reject-btn" onclick="chatRejectSuggestion('${escapeHtml(s.title || '')}', '${escapeHtml(s.author || '')}', this)">👎</button>
+                            </div>
+                        </div>`;
+                });
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        // Add a chat suggestion to the library
+        async function chatAddToLibrary(title, author, btn) {
+            btn.disabled = true;
+            btn.textContent = 'Adding...';
+            try {
+                const response = await fetch(`${API_URL}/suggestions/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    btn.textContent = '✅ Added!';
+                    btn.style.background = '#d1fae5';
+                    btn.style.color = '#065f46';
+                    toast(`Added "${title}"`, 'success');
+                    loadStats();
+                    loadBooks();
+                } else {
+                    btn.textContent = data.error || 'Error';
+                    btn.disabled = false;
+                }
+            } catch (e) {
+                btn.textContent = '📚 Add to Library';
+                btn.disabled = false;
+            }
+        }
+
+        // Reject a chat suggestion
+        async function chatRejectSuggestion(title, author, btn) {
+            btn.disabled = true;
+            try {
+                await fetch(`${API_URL}/suggestions/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, author })
+                });
+                btn.textContent = '🚫';
+                btn.style.opacity = '0.5';
+            } catch (e) {
+                btn.disabled = false;
+            }
+        }
+
+        // Load a specific conversation
+        async function chatLoadConversation(convId) {
+            try {
+                const response = await fetch(`${API_URL}/chat/conversations/${convId}`);
+                const data = await response.json();
+                
+                if (data.success && data.conversation) {
+                    chatConversationId = convId;
+                    const messages = data.conversation.messages || [];
+                    const messagesEl = document.getElementById('chatMessages');
+                    
+                    // Clear welcome screen
+                    messagesEl.innerHTML = '';
+
+                    // Render conversation messages
+                    messages.forEach(m => {
+                        const isUser = m.role === 'user';
+                        messagesEl.innerHTML += `
+                            <div class="chat-message ${isUser ? 'user' : 'assistant'}">
+                                <div class="avatar">${isUser ? '👤' : '📚'}</div>
+                                <div class="chat-bubble">${isUser ? escapeHtml(m.content) : formatChatResponse(m.content, [])}</div>
+                            </div>`;
+                    });
+
+                    messagesEl.scrollTop = messagesEl.scrollHeight;
+                    chatLoadConversations();
+                }
+            } catch (e) {
+                toast('Failed to load conversation', 'error');
+            }
+        }
+
+        // Delete a conversation
+        async function chatDeleteConversation(convId) {
+            if (!confirm('Delete this conversation?')) return;
+            try {
+                await fetch(`${API_URL}/chat/conversations/${convId}`, { method: 'DELETE' });
+                if (chatConversationId === convId) {
+                    chatNewConversation();
+                }
+                chatLoadConversations();
+                toast('Conversation deleted', 'success');
+            } catch (e) {
+                toast('Failed to delete', 'error');
+            }
+        }
+
     </script>
 </body>
 </html>
