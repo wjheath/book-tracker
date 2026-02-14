@@ -15,8 +15,8 @@
 
 2. **Data Layer**
    - [src/database.py](../src/database.py) - SQLite wrapper with schema: `id`, `title`, `author`, `status`, `read_date`
-   - Connection pattern: `db.connect()`, `db.fetch_all()`, `db.execute_query()`, `db.close()`
-   - Always close DB connections after use (see `get_books()` in app.py for pattern)
+   - Connection pattern: `with Database(path) as db:` (context manager — auto-closes on exit)
+   - Always use the `with` pattern to avoid connection leaks (see `get_books()` in app.py for pattern)
 
 3. **Business Logic**
    - [src/book_manager.py](../src/book_manager.py) - BookManager class for CRUD operations and CSV imports

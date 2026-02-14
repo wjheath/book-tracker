@@ -130,7 +130,8 @@ class ReaderProfile:
         genre_counter: Counter = Counter()
 
         for book in self.read_books:
-            genre = book.get('genre', '').strip().lower()
+            genre_raw = book.get('genre') or ''
+            genre = genre_raw.strip().lower()
             if genre:
                 # Normalize multi-genre entries
                 for g in genre.replace('/', ',').split(','):
@@ -139,7 +140,8 @@ class ReaderProfile:
                         genre_counter[g] += 1
             else:
                 # Infer genre from title
-                inferred = self._infer_genre(book.get('title', ''))
+                title = book.get('title') or ''
+                inferred = self._infer_genre(title)
                 if inferred:
                     genre_counter[inferred] += 1
 
@@ -159,9 +161,11 @@ class ReaderProfile:
         author_books: Dict[str, List[str]] = defaultdict(list)
 
         for book in self.read_books:
-            author = book.get('author', 'Unknown').strip()
+            author_raw = book.get('author') or 'Unknown'
+            author = author_raw.strip()
             author_counter[author] += 1
-            author_books[author].append(book.get('title', ''))
+            title = book.get('title') or 'Untitled'
+            author_books[author].append(title)
 
         total_authors = len(author_counter)
         one_hit = sum(1 for c in author_counter.values() if c == 1)
@@ -219,18 +223,20 @@ class ReaderProfile:
         )
 
         recent = sorted_books[:5]
-        recent_authors = list(dict.fromkeys(b.get('author', '') for b in recent))
+        recent_authors = list(dict.fromkeys((b.get('author') or '') for b in recent))
         recent_genres = []
         for b in recent:
-            g = b.get('genre', '').strip()
+            g_raw = b.get('genre') or ''
+            g = g_raw.strip()
             if g and g not in recent_genres:
                 recent_genres.append(g)
             elif not g:
-                inferred = self._infer_genre(b.get('title', ''))
+                title = b.get('title') or ''
+                inferred = self._infer_genre(title)
                 if inferred and inferred not in recent_genres:
                     recent_genres.append(inferred)
 
-        recent_titles = [b.get('title', '') for b in recent]
+        recent_titles = [(b.get('title') or 'Untitled') for b in recent]
 
         return {
             'recent_books': recent_titles,
@@ -242,8 +248,10 @@ class ReaderProfile:
         """Detect series reading patterns."""
         author_books: Dict[str, List[str]] = defaultdict(list)
         for book in self.read_books:
-            author = book.get('author', 'Unknown').strip()
-            author_books[author].append(book.get('title', ''))
+            author_raw = book.get('author') or 'Unknown'
+            author = author_raw.strip()
+            title = book.get('title') or 'Untitled'
+            author_books[author].append(title)
 
         multi_book_authors = {a: titles for a, titles in author_books.items() if len(titles) >= 2}
 

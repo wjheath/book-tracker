@@ -321,7 +321,8 @@ class BookChatEngine:
 
         try:
             response = self.classifier_llm.invoke([HumanMessage(content=prompt)])
-            intent = response.content.strip().lower().strip('"\'')
+            content = response.content if response.content is not None else ''
+            intent = content.strip().lower().strip('"\'')
 
             # Validate intent
             valid_intents = ['recommendation', 'context_response', 'library_query', 'book_chat', 'off_topic']
@@ -340,7 +341,8 @@ class BookChatEngine:
 
         try:
             response = self.classifier_llm.invoke([HumanMessage(content=prompt)])
-            result = response.content.strip()
+            content = response.content if response.content is not None else 'SAFE'
+            result = content.strip()
 
             if result.startswith('SAFE'):
                 return {'is_safe': True, 'guardrail_reason': ''}
@@ -372,7 +374,8 @@ class BookChatEngine:
 
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            text = response.content.strip()
+            content = response.content if response.content is not None else ''
+            text = content.strip()
 
             # Check if we have enough context to recommend
             if text.upper().startswith('READY'):
@@ -423,7 +426,8 @@ class BookChatEngine:
 
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            text = response.content.strip()
+            content = response.content if response.content is not None else ''
+            text = content.strip()
 
             # Parse suggestions from the response
             suggestions = self._parse_suggestions(text)
@@ -466,7 +470,8 @@ class BookChatEngine:
 
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            return {'response': response.content.strip()}
+            content = response.content if response.content is not None else "I couldn't look that up right now."
+            return {'response': content.strip()}
         except Exception as e:
             return {'response': f"I couldn't look that up right now. Try again shortly!"}
 
@@ -482,7 +487,8 @@ class BookChatEngine:
 
         try:
             response = self.llm.invoke([HumanMessage(content=prompt)])
-            return {'response': response.content.strip()}
+            content = response.content if response.content is not None else "I'd love to chat about that!"
+            return {'response': content.strip()}
         except Exception as e:
             return {'response': "I'd love to chat about that! Could you rephrase?"}
 
@@ -570,7 +576,7 @@ class BookChatEngine:
 
     # ─── Public API ──────────────────────────────────────────────────────
 
-    async def chat(
+    def chat(
         self,
         message: str,
         conversation_id: Optional[str] = None,
@@ -625,8 +631,8 @@ class BookChatEngine:
         }
 
         try:
-            # Run the graph
-            result = await self._run_graph(initial_state)
+            # Run the graph (synchronous — LangGraph's invoke is not async)
+            result = self.graph.invoke(initial_state)
 
             # Append assistant response to history
             response_text = result.get('response', '')
@@ -653,29 +659,3 @@ class BookChatEngine:
                 'messages': msg_history,
                 'gathered_preferences': gathered_preferences or {},
             }
-
-    async def _run_graph(self, state: ConversationState) -> dict:
-        """Run the LangGraph asynchronously."""
-        # LangGraph's compiled graph supports invoke
-        result = self.graph.invoke(state)
-        return result
-
-    def chat_sync(
-        self,
-        message: str,
-        **kwargs
-    ) -> Dict:
-        """Synchronous wrapper for chat() — use in Flask routes."""
-        import asyncio
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # We're already in an async context, create a new thread
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as pool:
-                    result = pool.submit(asyncio.run, self.chat(message, **kwargs)).result()
-                return result
-            else:
-                return loop.run_until_complete(self.chat(message, **kwargs))
-        except RuntimeError:
-            return asyncio.run(self.chat(message, **kwargs))

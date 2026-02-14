@@ -5,7 +5,7 @@ import io
 import json
 import traceback
 from datetime import datetime
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, Response
 from flask_cors import CORS
 from database import Database
 from book_manager import BookManager
@@ -17,16 +17,8 @@ from reader_profile import ReaderProfile
 app = Flask(__name__, static_folder=os.path.dirname(__file__), static_url_path='')
 CORS(app)
 
-# Initialize database and managers
-def get_db():
-    db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'books.db')
-    db = Database(db_path)
-    db.connect()
-    return db
-
-def get_book_manager():
-    db = get_db()
-    return BookManager(db), db
+# Database path constant
+DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'books.db')
 
 def get_llm_suggester():
     try:
@@ -59,24 +51,23 @@ def index():
 def get_books():
     """Get all books, optionally filtered by status"""
     try:
-        book_manager, db = get_book_manager()
-        status = request.args.get('status')  # 'read', 'to-read', 'currently-reading', or None for all
-        
-        all_books = book_manager.list_books()
-        
-        if status:
-            books = [b for b in all_books if b['status'] == status]
-        else:
-            books = all_books
-        
-        stats = {
-            'total': len(all_books),
-            'read': len([b for b in all_books if b['status'] == 'read']),
-            'to_read': len([b for b in all_books if b['status'] == 'to-read']),
-            'currently_reading': len([b for b in all_books if b['status'] == 'currently-reading'])
-        }
-        
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            status = request.args.get('status')
+            
+            all_books = book_manager.list_books()
+            
+            if status:
+                books = [b for b in all_books if b['status'] == status]
+            else:
+                books = all_books
+            
+            stats = {
+                'total': len(all_books),
+                'read': len([b for b in all_books if b['status'] == 'read']),
+                'to_read': len([b for b in all_books if b['status'] == 'to-read']),
+                'currently_reading': len([b for b in all_books if b['status'] == 'currently-reading'])
+            }
         
         return jsonify({
             'success': True,
@@ -103,9 +94,9 @@ def add_book():
         if status not in ['read', 'to-read', 'currently-reading']:
             status = 'to-read'
         
-        book_manager, db = get_book_manager()
-        book_manager.add_book(title, author, status, read_date)
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            book_manager.add_book(title, author, status, read_date)
         
         return jsonify({
             'success': True,
@@ -118,9 +109,9 @@ def add_book():
 def delete_book(book_id):
     """Delete a book"""
     try:
-        book_manager, db = get_book_manager()
-        book_manager.remove_book(book_id)
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            book_manager.remove_book(book_id)
         
         return jsonify({'success': True, 'message': 'Book deleted'})
     except Exception as e:
@@ -137,21 +128,17 @@ def update_book_status(book_id):
         if new_status not in ['read', 'to-read', 'currently-reading']:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
-        db = get_db()
-        
-        # If status is being set to 'read' and no date provided, use today's date
-        if new_status == 'read' and not read_date:
-            from datetime import datetime
-            read_date = datetime.now().strftime('%m/%d/%Y')
-        
-        if read_date:
-            query = "UPDATE books SET status = ?, read_date = ? WHERE id = ?"
-            db.execute_query(query, (new_status, read_date, book_id))
-        else:
-            query = "UPDATE books SET status = ? WHERE id = ?"
-            db.execute_query(query, (new_status, book_id))
-        
-        db.close()
+        with Database(DB_PATH) as db:
+            # If status is being set to 'read' and no date provided, use today's date
+            if new_status == 'read' and not read_date:
+                read_date = datetime.now().strftime('%m/%d/%Y')
+            
+            if read_date:
+                query = "UPDATE books SET status = ?, read_date = ? WHERE id = ?"
+                db.execute_query(query, (new_status, read_date, book_id))
+            else:
+                query = "UPDATE books SET status = ? WHERE id = ?"
+                db.execute_query(query, (new_status, book_id))
         
         return jsonify({'success': True, 'message': f'Book status updated to {new_status}'})
     except Exception as e:
@@ -162,42 +149,38 @@ def update_book(book_id):
     """Update a book's full record (admin mode)"""
     try:
         data = request.json
-        db = get_db()
         
-        # Check book exists
-        existing = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
-        if not existing:
-            db.close()
-            return jsonify({'success': False, 'error': 'Book not found'}), 404
-        
-        book = existing[0]
-        
-        # Update fields that were provided
-        title = data.get('title', book['title']).strip() if data.get('title') else book['title']
-        author = data.get('author', book['author']).strip() if data.get('author') else book['author']
-        status = data.get('status', book['status']).strip().lower() if data.get('status') else book['status']
-        read_date = data.get('read_date', book.get('read_date'))
-        genre = data.get('genre', book.get('genre'))
-        cover_url = data.get('cover_url', book.get('cover_url'))
-        date_added = data.get('date_added', book.get('date_added'))
-        
-        if not title or not author:
-            db.close()
-            return jsonify({'success': False, 'error': 'Title and author are required'}), 400
-        
-        if status not in ['read', 'to-read', 'currently-reading']:
-            db.close()
-            return jsonify({'success': False, 'error': 'Invalid status'}), 400
-        
-        query = """UPDATE books 
-                   SET title = ?, author = ?, status = ?, read_date = ?, 
-                       genre = ?, cover_url = ?, date_added = ?
-                   WHERE id = ?"""
-        db.execute_query(query, (title, author, status, read_date, genre, cover_url, date_added, book_id))
-        
-        # Fetch updated record
-        updated = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
-        db.close()
+        with Database(DB_PATH) as db:
+            # Check book exists
+            existing = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
+            if not existing:
+                return jsonify({'success': False, 'error': 'Book not found'}), 404
+            
+            book = existing[0]
+            
+            # Update fields that were provided
+            title = data.get('title', book['title']).strip() if data.get('title') else book['title']
+            author = data.get('author', book['author']).strip() if data.get('author') else book['author']
+            status = data.get('status', book['status']).strip().lower() if data.get('status') else book['status']
+            read_date = data.get('read_date', book.get('read_date'))
+            genre = data.get('genre', book.get('genre'))
+            cover_url = data.get('cover_url', book.get('cover_url'))
+            date_added = data.get('date_added', book.get('date_added'))
+            
+            if not title or not author:
+                return jsonify({'success': False, 'error': 'Title and author are required'}), 400
+            
+            if status not in ['read', 'to-read', 'currently-reading']:
+                return jsonify({'success': False, 'error': 'Invalid status'}), 400
+            
+            query = """UPDATE books 
+                       SET title = ?, author = ?, status = ?, read_date = ?, 
+                           genre = ?, cover_url = ?, date_added = ?
+                       WHERE id = ?"""
+            db.execute_query(query, (title, author, status, read_date, genre, cover_url, date_added, book_id))
+            
+            # Fetch updated record
+            updated = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
         
         return jsonify({'success': True, 'book': updated[0] if updated else None, 'message': 'Book updated'})
     except Exception as e:
@@ -213,11 +196,10 @@ def bulk_delete_books():
         if not book_ids:
             return jsonify({'success': False, 'error': 'No book IDs provided'}), 400
         
-        db = get_db()
-        placeholders = ','.join('?' * len(book_ids))
-        query = f"DELETE FROM books WHERE id IN ({placeholders})"
-        db.execute_query(query, tuple(book_ids))
-        db.close()
+        with Database(DB_PATH) as db:
+            placeholders = ','.join('?' * len(book_ids))
+            query = f"DELETE FROM books WHERE id IN ({placeholders})"
+            db.execute_query(query, tuple(book_ids))
         
         return jsonify({'success': True, 'message': f'Deleted {len(book_ids)} books', 'deleted': len(book_ids)})
     except Exception as e:
@@ -227,9 +209,9 @@ def bulk_delete_books():
 def export_books():
     """Export all books as CSV"""
     try:
-        book_manager, db = get_book_manager()
-        all_books = book_manager.list_books()
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            all_books = book_manager.list_books()
         
         output = io.StringIO()
         writer = csv.DictWriter(output, fieldnames=['id', 'title', 'author', 'status', 'read_date', 'genre', 'date_added'])
@@ -245,7 +227,6 @@ def export_books():
                 'date_added': book.get('date_added', '')
             })
         
-        from flask import Response
         return Response(
             output.getvalue(),
             mimetype='text/csv',
@@ -264,10 +245,9 @@ def update_book_cover(book_id):
         if not cover_url:
             return jsonify({'success': False, 'error': 'Cover URL is required'}), 400
         
-        db = get_db()
-        query = "UPDATE books SET cover_url = ? WHERE id = ?"
-        db.execute_query(query, (cover_url, book_id))
-        db.close()
+        with Database(DB_PATH) as db:
+            query = "UPDATE books SET cover_url = ? WHERE id = ?"
+            db.execute_query(query, (cover_url, book_id))
         
         return jsonify({'success': True, 'message': 'Cover updated'})
     except Exception as e:
@@ -286,19 +266,19 @@ def get_suggestions():
                 'error': 'LLM suggester not available. Please check your OpenAI API key.'
             }), 400
         
-        book_manager, db = get_book_manager()
-        all_books = book_manager.list_books()
-        read_books = [b for b in all_books if b['status'] == 'read']
-        
-        if not read_books:
-            db.close()
-            return jsonify({
-                'success': False,
-                'error': 'You need to have read some books to get suggestions.'
-            }), 400
-        
-        # Get rejected books to exclude from suggestions
-        rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            all_books = book_manager.list_books()
+            read_books = [b for b in all_books if b['status'] == 'read']
+            
+            if not read_books:
+                return jsonify({
+                    'success': False,
+                    'error': 'You need to have read some books to get suggestions.'
+                }), 400
+            
+            # Get rejected books to exclude from suggestions
+            rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
         
         suggestions = suggester.suggest_books(
             read_books, 
@@ -306,7 +286,6 @@ def get_suggestions():
             rejected_books=rejected_books,
             num_suggestions=num_suggestions
         )
-        db.close()
         
         return jsonify({
             'success': True,
@@ -327,27 +306,23 @@ def add_suggestion_to_library():
         if not title or not author:
             return jsonify({'success': False, 'error': 'Title and author are required'}), 400
         
-        book_manager, db = get_book_manager()
-        
-        # Check if book already exists
-        existing = db.fetch_all(
-            "SELECT id FROM books WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
-            (title, author)
-        )
-        
-        if existing:
-            db.close()
-            return jsonify({'success': False, 'error': 'Book already in your library'}), 400
-        
-        # Add with today's date as date_added
-        from datetime import datetime
-        date_added = datetime.now().strftime('%Y-%m-%d')
-        
-        db.execute_query(
-            "INSERT INTO books (title, author, status, date_added) VALUES (?, ?, 'to-read', ?)",
-            (title, author, date_added)
-        )
-        db.close()
+        with Database(DB_PATH) as db:
+            # Check if book already exists
+            existing = db.fetch_all(
+                "SELECT id FROM books WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
+                (title, author)
+            )
+            
+            if existing:
+                return jsonify({'success': False, 'error': 'Book already in your library'}), 400
+            
+            # Add with today's date as date_added
+            date_added = datetime.now().strftime('%Y-%m-%d')
+            
+            db.execute_query(
+                "INSERT INTO books (title, author, status, date_added) VALUES (?, ?, 'to-read', ?)",
+                (title, author, date_added)
+            )
         
         return jsonify({
             'success': True,
@@ -368,26 +343,22 @@ def reject_suggestion():
         if not title or not author:
             return jsonify({'success': False, 'error': 'Title and author are required'}), 400
         
-        db = get_db()
-        
-        # Check if already rejected
-        existing = db.fetch_all(
-            "SELECT id FROM rejected_suggestions WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
-            (title, author)
-        )
-        
-        if existing:
-            db.close()
-            return jsonify({'success': True, 'message': 'Already rejected'})
-        
-        from datetime import datetime
-        rejected_date = datetime.now().strftime('%Y-%m-%d')
-        
-        db.execute_query(
-            "INSERT INTO rejected_suggestions (title, author, rejected_date, reason) VALUES (?, ?, ?, ?)",
-            (title, author, rejected_date, reason)
-        )
-        db.close()
+        with Database(DB_PATH) as db:
+            # Check if already rejected
+            existing = db.fetch_all(
+                "SELECT id FROM rejected_suggestions WHERE LOWER(title) = LOWER(?) AND LOWER(author) = LOWER(?)",
+                (title, author)
+            )
+            
+            if existing:
+                return jsonify({'success': True, 'message': 'Already rejected'})
+            
+            rejected_date = datetime.now().strftime('%Y-%m-%d')
+            
+            db.execute_query(
+                "INSERT INTO rejected_suggestions (title, author, rejected_date, reason) VALUES (?, ?, ?, ?)",
+                (title, author, rejected_date, reason)
+            )
         
         return jsonify({
             'success': True,
@@ -400,9 +371,8 @@ def reject_suggestion():
 def get_rejected():
     """Get list of rejected suggestions"""
     try:
-        db = get_db()
-        rejected = db.fetch_all("SELECT * FROM rejected_suggestions ORDER BY rejected_date DESC")
-        db.close()
+        with Database(DB_PATH) as db:
+            rejected = db.fetch_all("SELECT * FROM rejected_suggestions ORDER BY rejected_date DESC")
         return jsonify({'success': True, 'rejected': rejected, 'count': len(rejected)})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -411,9 +381,8 @@ def get_rejected():
 def remove_rejected(rejected_id):
     """Remove a book from the rejected list"""
     try:
-        db = get_db()
-        db.execute_query("DELETE FROM rejected_suggestions WHERE id = ?", (rejected_id,))
-        db.close()
+        with Database(DB_PATH) as db:
+            db.execute_query("DELETE FROM rejected_suggestions WHERE id = ?", (rejected_id,))
         return jsonify({'success': True, 'message': 'Removed from rejected list'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -422,9 +391,9 @@ def remove_rejected(rejected_id):
 def get_stats():
     """Get library statistics"""
     try:
-        book_manager, db = get_book_manager()
-        all_books = book_manager.list_books()
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            all_books = book_manager.list_books()
         
         stats = {
             'total_books': len(all_books),
@@ -465,57 +434,57 @@ def import_csv():
         content = file.read().decode('utf-8')
         csv_reader = csv.DictReader(io.StringIO(content))
         
-        book_manager, db = get_book_manager()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            
+            # Get existing books to check for duplicates
+            existing_books = book_manager.list_books()
+            existing_titles = {(b['title'].lower(), b['author'].lower()) for b in existing_books}
         
-        # Get existing books to check for duplicates
-        existing_books = book_manager.list_books()
-        existing_titles = {(b['title'].lower(), b['author'].lower()) for b in existing_books}
-        
-        imported = 0
-        skipped = 0
-        
-        for row in csv_reader:
-            # Support both StoryGraph and Goodreads formats
-            title = row.get('Title', row.get('title', '')).strip()
-            author = row.get('Authors', row.get('Author', row.get('author', ''))).strip()
+            imported = 0
+            skipped = 0
             
-            # Handle status - StoryGraph uses "Read Status", Goodreads uses "Exclusive Shelf"
-            status_raw = row.get('Read Status', row.get('Exclusive Shelf', 'to-read')).lower().strip()
-            
-            # Normalize status
-            if status_raw in ['read', 'finished']:
-                status = 'read'
-            elif status_raw in ['currently-reading', 'currently reading', 'reading']:
-                status = 'currently-reading'
-            else:
-                status = 'to-read'
-            
-            # Extract read date
-            read_date = None
-            if status == 'read':
-                # StoryGraph format
-                read_date = row.get('Last Date Read', '').strip()
-                if not read_date:
-                    dates_read = row.get('Dates Read', '').strip()
-                    if dates_read and '-' in dates_read:
-                        read_date = dates_read.split('-')[-1].strip()
-                # Goodreads format
-                if not read_date:
-                    read_date = row.get('Date Read', '').strip()
-            
-            if title and author:
-                # Check for duplicates
-                if (title.lower(), author.lower()) in existing_titles:
-                    skipped += 1
-                    continue
+            for row in csv_reader:
+                # Support both StoryGraph and Goodreads formats
+                title = row.get('Title', row.get('title', '')).strip()
+                author = row.get('Authors', row.get('Author', row.get('author', ''))).strip()
                 
-                book_manager.add_book(title, author, status, read_date)
-                existing_titles.add((title.lower(), author.lower()))
-                imported += 1
-        
-        # Get updated count
-        all_books = book_manager.list_books()
-        db.close()
+                # Handle status - StoryGraph uses "Read Status", Goodreads uses "Exclusive Shelf"
+                status_raw = row.get('Read Status', row.get('Exclusive Shelf', 'to-read')).lower().strip()
+                
+                # Normalize status
+                if status_raw in ['read', 'finished']:
+                    status = 'read'
+                elif status_raw in ['currently-reading', 'currently reading', 'reading']:
+                    status = 'currently-reading'
+                else:
+                    status = 'to-read'
+                
+                # Extract read date
+                read_date = None
+                if status == 'read':
+                    # StoryGraph format
+                    read_date = row.get('Last Date Read', '').strip()
+                    if not read_date:
+                        dates_read = row.get('Dates Read', '').strip()
+                        if dates_read and '-' in dates_read:
+                            read_date = dates_read.split('-')[-1].strip()
+                    # Goodreads format
+                    if not read_date:
+                        read_date = row.get('Date Read', '').strip()
+                
+                if title and author:
+                    # Check for duplicates
+                    if (title.lower(), author.lower()) in existing_titles:
+                        skipped += 1
+                        continue
+                    
+                    book_manager.add_book(title, author, status, read_date)
+                    existing_titles.add((title.lower(), author.lower()))
+                    imported += 1
+            
+            # Get updated count
+            all_books = book_manager.list_books()
         
         return jsonify({
             'success': True,
@@ -547,60 +516,58 @@ def chat_message():
                 'error': 'Chat engine not available. Please check your OpenAI API key.'
             }), 400
         
-        # Load conversation state from DB if continuing
-        db = get_db()
-        messages = []
-        gathered_preferences = {}
-        
-        if conversation_id:
-            convos = db.fetch_all(
-                "SELECT messages, gathered_preferences FROM conversations WHERE id = ?",
-                (conversation_id,)
+        with Database(DB_PATH) as db:
+            # Load conversation state from DB if continuing
+            messages = []
+            gathered_preferences = {}
+            
+            if conversation_id:
+                convos = db.fetch_all(
+                    "SELECT messages, gathered_preferences FROM conversations WHERE id = ?",
+                    (conversation_id,)
+                )
+                if convos:
+                    try:
+                        messages = json.loads(convos[0].get('messages', '[]'))
+                        gathered_preferences = json.loads(convos[0].get('gathered_preferences', '{}'))
+                    except (json.JSONDecodeError, TypeError):
+                        messages = []
+                        gathered_preferences = {}
+            
+            # Get book data for context (same DB connection)
+            book_manager = BookManager(db)
+            all_books = book_manager.list_books()
+            read_books = [b for b in all_books if b.get('status') == 'read']
+            rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
+            
+            # Process message through LangGraph engine
+            result = engine.chat(
+                message=message,
+                conversation_id=conversation_id,
+                messages=messages,
+                read_books=read_books,
+                all_books=all_books,
+                rejected_books=rejected_books,
+                gathered_preferences=gathered_preferences,
             )
-            if convos:
-                try:
-                    messages = json.loads(convos[0].get('messages', '[]'))
-                    gathered_preferences = json.loads(convos[0].get('gathered_preferences', '{}'))
-                except (json.JSONDecodeError, TypeError):
-                    messages = []
-                    gathered_preferences = {}
-        
-        # Get book data for context
-        book_manager, _ = get_book_manager()
-        all_books = book_manager.list_books()
-        read_books = [b for b in all_books if b.get('status') == 'read']
-        rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
-        
-        # Process message through LangGraph engine
-        result = engine.chat_sync(
-            message=message,
-            conversation_id=conversation_id,
-            messages=messages,
-            read_books=read_books,
-            all_books=all_books,
-            rejected_books=rejected_books,
-            gathered_preferences=gathered_preferences,
-        )
-        
-        # Save conversation state to DB
-        conv_id = result.get('conversation_id', conversation_id)
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Generate a title from the first user message
-        conv_title = message[:80] + ('...' if len(message) > 80 else '')
-        
-        if conversation_id:
-            db.execute_query(
-                "UPDATE conversations SET updated_at = ?, messages = ?, gathered_preferences = ? WHERE id = ?",
-                (now, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})), conv_id)
-            )
-        else:
-            db.execute_query(
-                "INSERT INTO conversations (id, created_at, updated_at, title, messages, gathered_preferences) VALUES (?, ?, ?, ?, ?, ?)",
-                (conv_id, now, now, conv_title, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})))
-            )
-        
-        db.close()
+            
+            # Save conversation state to DB
+            conv_id = result.get('conversation_id', conversation_id)
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            
+            # Generate a title from the first user message
+            conv_title = message[:80] + ('...' if len(message) > 80 else '')
+            
+            if conversation_id:
+                db.execute_query(
+                    "UPDATE conversations SET updated_at = ?, messages = ?, gathered_preferences = ? WHERE id = ?",
+                    (now, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})), conv_id)
+                )
+            else:
+                db.execute_query(
+                    "INSERT INTO conversations (id, created_at, updated_at, title, messages, gathered_preferences) VALUES (?, ?, ?, ?, ?, ?)",
+                    (conv_id, now, now, conv_title, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})))
+                )
         
         return jsonify({
             'success': True,
@@ -617,11 +584,10 @@ def chat_message():
 def list_conversations():
     """List all conversations"""
     try:
-        db = get_db()
-        convos = db.fetch_all(
-            "SELECT id, created_at, updated_at, title FROM conversations WHERE is_active = 1 ORDER BY updated_at DESC"
-        )
-        db.close()
+        with Database(DB_PATH) as db:
+            convos = db.fetch_all(
+                "SELECT id, created_at, updated_at, title FROM conversations WHERE is_active = 1 ORDER BY updated_at DESC"
+            )
         return jsonify({'success': True, 'conversations': convos})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -630,12 +596,11 @@ def list_conversations():
 def get_conversation(conversation_id):
     """Get a specific conversation with full message history"""
     try:
-        db = get_db()
-        convos = db.fetch_all(
-            "SELECT * FROM conversations WHERE id = ?",
-            (conversation_id,)
-        )
-        db.close()
+        with Database(DB_PATH) as db:
+            convos = db.fetch_all(
+                "SELECT * FROM conversations WHERE id = ?",
+                (conversation_id,)
+            )
         
         if not convos:
             return jsonify({'success': False, 'error': 'Conversation not found'}), 404
@@ -656,9 +621,8 @@ def get_conversation(conversation_id):
 def delete_conversation(conversation_id):
     """Delete a conversation"""
     try:
-        db = get_db()
-        db.execute_query("DELETE FROM conversations WHERE id = ?", (conversation_id,))
-        db.close()
+        with Database(DB_PATH) as db:
+            db.execute_query("DELETE FROM conversations WHERE id = ?", (conversation_id,))
         return jsonify({'success': True, 'message': 'Conversation deleted'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -667,10 +631,10 @@ def delete_conversation(conversation_id):
 def get_reader_profile():
     """Get the reader's DNA profile analysis"""
     try:
-        book_manager, db = get_book_manager()
-        all_books = book_manager.list_books()
-        read_books = [b for b in all_books if b.get('status') == 'read']
-        db.close()
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            all_books = book_manager.list_books()
+            read_books = [b for b in all_books if b.get('status') == 'read']
         
         if not read_books:
             return jsonify({
@@ -701,4 +665,5 @@ def internal_error(error):
     return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    debug_mode = os.environ.get('FLASK_DEBUG', 'false').lower() in ('true', '1', 'yes')
+    app.run(debug=debug_mode, host='127.0.0.1', port=5000)

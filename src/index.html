@@ -2039,10 +2039,10 @@
         // ============== LOAD STATS ==============
         async function loadStats() {
             try {
-                const response = await fetch(`${API_URL}/books`);
+                const response = await fetch(`${API_URL}/stats`);
                 const data = await response.json();
                 if (data.success && data.stats) {
-                    document.getElementById('totalBooks').textContent = data.stats.total;
+                    document.getElementById('totalBooks').textContent = data.stats.total_books;
                     document.getElementById('readBooks').textContent = data.stats.read;
                     document.getElementById('toReadBooks').textContent = data.stats.to_read;
                     document.getElementById('currentlyReadingBooks').textContent = data.stats.currently_reading;
@@ -2465,11 +2465,6 @@
             window.open(`${API_URL}/books/export`, '_blank');
             toast('Downloading CSV export...', 'info');
         }
-        // ============== ADMIN: EXPORT ==============
-        function exportCSV() {
-            window.open(`${API_URL}/books/export`, '_blank');
-            toast('Downloading CSV export...', 'info');
-        }
 
         // ====================================================================
         //  CHAT ENGINE — Conversational Book Recommendations
@@ -2646,15 +2641,17 @@
             if (suggestions && suggestions.length > 0) {
                 html += '<div style="margin-top: 12px;">';
                 suggestions.forEach((s, i) => {
+                    const safeTitle = escapeHtml(s.title || '');
+                    const safeAuthor = escapeHtml(s.author || '');
                     html += `
                         <div class="chat-suggestion">
-                            <div class="chat-suggestion-title">${escapeHtml(s.title || '')}</div>
-                            <div class="chat-suggestion-author">by ${escapeHtml(s.author || '')}</div>
+                            <div class="chat-suggestion-title">${safeTitle}</div>
+                            <div class="chat-suggestion-author">by ${safeAuthor}</div>
                             ${s.summary ? `<div style="font-size: 13px; color: #374151; margin-top: 6px;">${escapeHtml(s.summary)}</div>` : ''}
                             ${s.reason ? `<div style="font-size: 12px; color: var(--primary-dark); font-style: italic; margin-top: 4px;">💡 ${escapeHtml(s.reason)}</div>` : ''}
                             <div class="chat-suggestion-actions">
-                                <button class="add-to-library-btn" onclick="chatAddToLibrary('${escapeHtml(s.title || '')}', '${escapeHtml(s.author || '')}', this)">📚 Add to Library</button>
-                                <button class="reject-btn" onclick="chatRejectSuggestion('${escapeHtml(s.title || '')}', '${escapeHtml(s.author || '')}', this)">👎</button>
+                                <button class="add-to-library-btn" data-title="${safeTitle}" data-author="${safeAuthor}" onclick="chatAddToLibrary(this)">📚 Add to Library</button>
+                                <button class="reject-btn" data-title="${safeTitle}" data-author="${safeAuthor}" onclick="chatRejectSuggestion(this)">👎</button>
                             </div>
                         </div>`;
                 });
@@ -2665,7 +2662,9 @@
         }
 
         // Add a chat suggestion to the library
-        async function chatAddToLibrary(title, author, btn) {
+        async function chatAddToLibrary(btn) {
+            const title = btn.dataset.title;
+            const author = btn.dataset.author;
             btn.disabled = true;
             btn.textContent = 'Adding...';
             try {
@@ -2693,7 +2692,9 @@
         }
 
         // Reject a chat suggestion
-        async function chatRejectSuggestion(title, author, btn) {
+        async function chatRejectSuggestion(btn) {
+            const title = btn.dataset.title;
+            const author = btn.dataset.author;
             btn.disabled = true;
             try {
                 await fetch(`${API_URL}/suggestions/reject`, {

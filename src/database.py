@@ -3,6 +3,15 @@ class Database:
         self.db_file = db_file
         self.connection = None
 
+    def __enter__(self):
+        """Support 'with Database(path) as db:' pattern to avoid connection leaks."""
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False  # Don't suppress exceptions
+
     def connect(self):
         import sqlite3
         self.connection = sqlite3.connect(self.db_file)
