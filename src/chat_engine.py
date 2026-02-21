@@ -13,6 +13,7 @@ The graph handles multi-turn conversations with memory.
 """
 
 import os
+import re
 import sys
 import json
 import uuid
@@ -29,6 +30,47 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import OPENAI_API_KEY, OPENAI_MODEL, GPT_PREFERRED_MODELS
 from reader_profile import ReaderProfile
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  DATE UTILITIES
+# ═══════════════════════════════════════════════════════════════════════
+
+_DATE_FORMATS = [
+    '%m/%d/%Y',   # 9/30/2025  ← most common in this DB
+    '%m/%d/%y',   # 9/30/25
+    '%Y-%m-%d',   # 2025-09-30
+    '%Y/%m/%d',   # 2025/09/30
+    '%Y/%m',      # 2024/01  (partial dates)
+    '%d/%m/%Y',   # 30/09/2025
+    '%B %d, %Y',  # September 30, 2025
+    '%b %d, %Y',  # Sep 30, 2025
+]
+
+def _parse_date(date_str: str) -> Optional[datetime]:
+    """Parse a date string trying multiple formats. Returns None if unparseable."""
+    if not date_str:
+        return None
+    s = date_str.strip()
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(s, fmt)
+        except (ValueError, AttributeError):
+            continue
+    return None
+
+
+def _book_recency_key(book: dict):
+    """
+    Sort key that gives correct chronological order for books.
+    Priority: parsed read_date > parsed date_added > id
+    Returns a tuple so books without dates still sort deterministically
+    by their DB insertion order (id).
+    """
+    dt = _parse_date(book.get('read_date') or '') \
+         or _parse_date(book.get('date_added') or '')
+    return (dt or datetime.min, book.get('id', 0))
+
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -130,6 +172,9 @@ You're having a personal conversation with a reader and know their tastes deeply
 ## Reader's Profile
 {reader_profile}
 
+## Recently Read Books (most recent first — THESE define their current taste)
+{recent_reads}
+
 ## Conversation Context
 {conversation_history}
 
@@ -144,6 +189,7 @@ You're having a personal conversation with a reader and know their tastes deeply
 
 ## Your Task
 Based on the conversation and their profile, suggest {num_suggestions} perfect books.
+When referencing their reading history, prioritise the RECENTLY READ list above — those are their freshest tastes.
 
 ## Critical Rules
 - NEVER suggest books already in their library or rejected list
@@ -168,6 +214,8 @@ Write a brief conversational intro (1-2 sentences), then list suggestions:
 End with a brief conversational outro asking if any interest them or if they want different suggestions."""
 
 LIBRARY_QUERY_PROMPT = """You are a helpful book library assistant. Answer the user's question about their reading library.
+The books list below is sorted MOST RECENT FIRST by read_date — treat rank #1 as the latest read.
+NEVER reorder or re-rank the list in your head; trust the ordering given.
 
 ## Library Stats
 - Total books: {total}
@@ -178,7 +226,7 @@ LIBRARY_QUERY_PROMPT = """You are a helpful book library assistant. Answer the u
 ## Reader Profile
 {reader_profile}
 
-## Their Books (most recent first)
+## Read Books in Chronological Order (rank 1 = most recently read)
 {books_list}
 
 ## User's Question
@@ -409,9 +457,24 @@ class BookChatEngine:
 
         # Build library and rejected titles list
         all_books = state.get('all_books', [])
-        library_titles = "\n".join([f"- {b.get('title', '')} by {b.get('author', '')}" for b in all_books[:100]])
+        # No cap — every book in the library must appear here or the LLM may
+        # suggest it. Title-only lines are compact (~40 chars each) so even a
+        # 500-book library adds only ~5k tokens.
+        library_titles = "\n".join([f"- {b.get('title', '')} by {b.get('author', '')}" for b in all_books])
         rejected = state.get('rejected_books', [])
         rejected_titles = "\n".join([f"- {b.get('title', '')} by {b.get('author', '')}" for b in rejected])
+
+        # Build an explicit recently-read list (most recent first) to anchor the LLM's
+        # taste signal on current reads rather than all-time favorites.
+        read_books = state.get('read_books', [])
+        recent_read = sorted(read_books, key=_book_recency_key, reverse=True)[:10]
+        recent_read_lines = []
+        for rank, b in enumerate(recent_read, 1):
+            date_part = f" (read {b['read_date']})" if b.get('read_date') else ''
+            recent_read_lines.append(
+                f"{rank}. {b.get('title', '')} by {b.get('author', '')}{date_part}"
+            )
+        recent_reads_str = "\n".join(recent_read_lines) or "No reads recorded yet"
 
         num_suggestions = gathered.get('num_suggestions', 5)
 
@@ -421,6 +484,7 @@ class BookChatEngine:
             gathered_preferences=json.dumps(gathered, indent=2) if gathered else "General recommendation requested",
             library_titles=library_titles or "No books in library",
             rejected_titles=rejected_titles or "None",
+            recent_reads=recent_reads_str,
             num_suggestions=num_suggestions,
         )
 
@@ -431,6 +495,22 @@ class BookChatEngine:
 
             # Parse suggestions from the response
             suggestions = self._parse_suggestions(text)
+
+            # Hard filter: NEVER return a book already in the library.
+            # The LLM prompt instructs it to avoid these, but LLMs are not reliable
+            # enough for a rule that must never be broken.
+            library_norm = {
+                re.sub(r'[^a-z0-9]', '', (b.get('title') or '').lower())
+                for b in all_books
+                if b.get('title')
+            }
+            before = len(suggestions)
+            suggestions = [
+                s for s in suggestions
+                if re.sub(r'[^a-z0-9]', '', (s.get('title') or '').lower()) not in library_norm
+            ]
+            if len(suggestions) < before:
+                print(f"[ChatFilter] Removed {before - len(suggestions)} library book(s) from chat suggestions.")
 
             return {
                 'response': text,
@@ -450,13 +530,17 @@ class BookChatEngine:
         all_books = state.get('all_books', [])
         read_books = [b for b in all_books if b.get('status') == 'read']
 
-        # Build books list (recent first)
-        sorted_books = sorted(read_books, key=lambda b: b.get('read_date', '') or '', reverse=True)
-        books_list = "\n".join([
-            f"- {b.get('title', '')} by {b.get('author', '')} ({b.get('status', '')})"
-            + (f" — read {b.get('read_date', '')}" if b.get('read_date') else "")
-            for b in sorted_books[:50]
-        ])
+        # Sort by properly parsed date — M/D/YYYY strings do NOT sort lexicographically.
+        sorted_books = sorted(read_books, key=_book_recency_key, reverse=True)
+
+        # Numbered list so the LLM cannot accidentally re-rank entries.
+        book_lines = []
+        for rank, b in enumerate(sorted_books[:60], 1):
+            date_part = f" — read {b['read_date']}" if b.get('read_date') else ' — (no date recorded)'
+            book_lines.append(
+                f"{rank:2d}. {b.get('title', '')} by {b.get('author', '')}{date_part}"
+            )
+        books_list = "\n".join(book_lines)
 
         prompt = LIBRARY_QUERY_PROMPT.format(
             total=len(all_books),
@@ -585,6 +669,7 @@ class BookChatEngine:
         all_books: Optional[List[Dict]] = None,
         rejected_books: Optional[List[Dict]] = None,
         gathered_preferences: Optional[Dict] = None,
+        favorite_authors: Optional[List[str]] = None,
     ) -> Dict:
         """
         Process a user message through the conversation graph.
@@ -605,7 +690,10 @@ class BookChatEngine:
         # Build reader profile
         reader_profile_str = ""
         if read_books:
-            profile = ReaderProfile(read_books + (all_books or []), all_books)
+            profile = ReaderProfile(
+                read_books + (all_books or []), all_books,
+                favorite_authors=favorite_authors or []
+            )
             reader_profile_str = profile.get_prompt_context()
 
         # Prepare message history

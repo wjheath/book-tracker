@@ -29,9 +29,9 @@
    - [src/book_manager.py](../src/book_manager.py) - BookManager class for CRUD operations and CSV imports
 
 5. **Frontend (Single Page App)**
-   - [src/index.html](../src/index.html) - Vanilla JS, ~2755 lines
-   - **Tabs**: Library, Add Book, Book Chat (conversational AI), Feeling Lucky (quick suggestions), Import CSV, Admin (database editor)
-   - CSS custom properties for theming
+   - [src/index.html](../src/index.html) - Vanilla JS, ~3150 lines
+   - **Tabs (7)**: Library, Add Book, Book Chat, Feeling Lucky, Import CSV, Reader DNA, Admin
+   - CSS custom properties for theming; client-side pagination (25 books/page)
    - All API calls use relative URLs (`/api/*`) and data attributes for XSS safety
 
 ### Configuration & Environment
@@ -107,8 +107,14 @@
 3. BookChatEngine processes message through LangGraph state machine:
    - Classify intent → Check guardrails → Route to appropriate handler
    - Handlers: context gathering, recommendations, library queries, casual chat
-4. Save conversation state (messages, gathered_preferences) back to DB
+4. Before saving, suggestions are attached to the last assistant message in `messages_to_save` so they're available when the conversation is reloaded
 5. Return `{response, suggestions, conversation_id, intent}`
+
+### Reader DNA Profile Flow
+1. Frontend GET `/api/profile`
+2. [src/app.py](../src/app.py#L630) builds `ReaderProfile(all_books, all_books).build()`
+3. Returns `{profile: {...7 dimensions...}, profile_text: str}`
+4. Frontend `renderProfile()` renders visual cards: genre bars, author list, pace, recency tags, loyalty stats, series preference
 
 ### Database Schema
 ```sql
@@ -149,6 +155,20 @@ CREATE TABLE reader_profile_cache (
 );
 ```
 
+## Frontend JS State Variables
+
+| Variable | Purpose |
+|---|---|
+| `allBooks` | Full list from API |
+| `filteredBooks` | Currently filtered+sorted list (used by pagination) |
+| `currentFilter` | Active status filter (`null` / `'read'` / etc.) |
+| `searchQuery` | Live search string |
+| `currentSort` | Sort key e.g. `'id-desc'` |
+| `currentPage` | Current page index (1-based) |
+| `BOOKS_PER_PAGE` | Constant `25` — change to adjust page size |
+
+**CRITICAL**: `renderFilteredBooks()` is the single entry point that re-filters, sets `filteredBooks`, resets `currentPage = 1`, then calls `renderBooks()`. `renderBooks()` is parameterless — it reads `filteredBooks` directly. Never call `renderBooks(someArray)`.
+
 ## Development Workflows
 
 ### Running the App
@@ -185,7 +205,7 @@ CREATE TABLE reader_profile_cache (
 | [src/chat_engine.py](../src/chat_engine.py) | LangGraph chat | `chat()`, intent classification, LangGraph nodes |
 | [src/reader_profile.py](../src/reader_profile.py) | Profile analyzer | `build()`, `get_prompt_context()`, 7-dimension analysis |
 | [src/config.py](../src/config.py) | Configuration | Environment loading, defaults, prompt file resolution |
-| [src/index.html](../src/index.html) | Frontend SPA | 6 tabs, chat UI, admin mode, forms, API calls |
+| [src/index.html](../src/index.html) | Frontend SPA | 7 tabs, pagination, Reader DNA, rejected books UI, chat history |
 
 ## Common Tasks
 
@@ -213,4 +233,10 @@ CREATE TABLE reader_profile_cache (
 - Always check for None: `field = book.get('field') or 'default'`
 - Never use `.get('field', 'default')` alone (doesn't catch explicit None)
 - Example: `title = book.get('title') or 'Untitled'`
+
+### Adding Frontend Features
+- New tab: add `<button class="nav-tab" onclick="switchTab('name', this)">` to nav-tabs, add `<div class="tab-page" id="tab-name">` before the footer, add `if (tabName === 'name') loadName();` in `switchTab()`
+- Pagination: `BOOKS_PER_PAGE = 25` constant; change it to adjust page size. Pagination only applies to the Library tab.
+- Reader DNA: calls `/api/profile` → `renderProfile(data.profile)` with 6 visual cards
+- Rejected books: calls `/api/rejected` (GET) and `/api/rejected/{id}` (DELETE) — rendered in collapsible section inside Suggestions tab
 

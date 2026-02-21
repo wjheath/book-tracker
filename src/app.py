@@ -237,18 +237,25 @@ def export_books():
 
 @app.route('/api/books/<int:book_id>/cover', methods=['PUT'])
 def update_book_cover(book_id):
-    """Update a book's cover URL"""
+    """Update a book's cover URL and optionally its genre (if not already set)."""
     try:
         data = request.json
         cover_url = data.get('cover_url', '').strip()
-        
+        genre = data.get('genre', '').strip()  # optional
+
         if not cover_url:
             return jsonify({'success': False, 'error': 'Cover URL is required'}), 400
-        
+
         with Database(DB_PATH) as db:
-            query = "UPDATE books SET cover_url = ? WHERE id = ?"
-            db.execute_query(query, (cover_url, book_id))
-        
+            if genre:
+                # Only fill in genre when the book has none yet — never overwrite user data
+                db.execute_query(
+                    "UPDATE books SET cover_url = ?, genre = CASE WHEN (genre IS NULL OR genre = '') THEN ? ELSE genre END WHERE id = ?",
+                    (cover_url, genre, book_id)
+                )
+            else:
+                db.execute_query("UPDATE books SET cover_url = ? WHERE id = ?", (cover_url, book_id))
+
         return jsonify({'success': True, 'message': 'Cover updated'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -539,7 +546,9 @@ def chat_message():
             all_books = book_manager.list_books()
             read_books = [b for b in all_books if b.get('status') == 'read']
             rejected_books = db.fetch_all("SELECT title, author FROM rejected_suggestions")
-            
+            fav_rows = db.fetch_all("SELECT value FROM user_settings WHERE key = 'favorite_authors'")
+            favorite_authors = json.loads(fav_rows[0]['value']) if fav_rows else []
+
             # Process message through LangGraph engine
             result = engine.chat(
                 message=message,
@@ -549,6 +558,7 @@ def chat_message():
                 all_books=all_books,
                 rejected_books=rejected_books,
                 gathered_preferences=gathered_preferences,
+                favorite_authors=favorite_authors,
             )
             
             # Save conversation state to DB
@@ -558,15 +568,27 @@ def chat_message():
             # Generate a title from the first user message
             conv_title = message[:80] + ('...' if len(message) > 80 else '')
             
+            # Attach suggestions to the last assistant message for history restoration
+            messages_to_save = list(result.get('messages', []))
+            suggestions = result.get('suggestions', [])
+            if suggestions and messages_to_save:
+                for i in range(len(messages_to_save) - 1, -1, -1):
+                    msg = messages_to_save[i]
+                    if isinstance(msg, dict):
+                        role = msg.get('role', msg.get('type', ''))
+                        if role not in ('user', 'human'):
+                            messages_to_save[i] = {**msg, 'suggestions': suggestions}
+                            break
+            
             if conversation_id:
                 db.execute_query(
                     "UPDATE conversations SET updated_at = ?, messages = ?, gathered_preferences = ? WHERE id = ?",
-                    (now, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})), conv_id)
+                    (now, json.dumps(messages_to_save), json.dumps(result.get('gathered_preferences', {})), conv_id)
                 )
             else:
                 db.execute_query(
                     "INSERT INTO conversations (id, created_at, updated_at, title, messages, gathered_preferences) VALUES (?, ?, ?, ?, ?, ?)",
-                    (conv_id, now, now, conv_title, json.dumps(result.get('messages', [])), json.dumps(result.get('gathered_preferences', {})))
+                    (conv_id, now, now, conv_title, json.dumps(messages_to_save), json.dumps(result.get('gathered_preferences', {})))
                 )
         
         return jsonify({
@@ -635,22 +657,68 @@ def get_reader_profile():
             book_manager = BookManager(db)
             all_books = book_manager.list_books()
             read_books = [b for b in all_books if b.get('status') == 'read']
-        
+            # Load user-selected favourite authors
+            fav_rows = db.fetch_all("SELECT value FROM user_settings WHERE key = 'favorite_authors'")
+            favorite_authors = json.loads(fav_rows[0]['value']) if fav_rows else []
+
         if not read_books:
             return jsonify({
                 'success': False,
                 'error': 'Need read books to build a profile'
             }), 400
-        
-        profile = ReaderProfile(all_books, all_books)
+
+        profile = ReaderProfile(all_books, all_books, favorite_authors=favorite_authors)
         profile_data = profile.build()
         profile_text = profile.get_prompt_context()
-        
+
+        # Persist any genres fetched from Open Library so future builds skip the network requests
+        enriched_genres = profile.get_ol_enriched_genres()
+        if enriched_genres:
+            with Database(DB_PATH) as db:
+                for book_id, genre_str in enriched_genres.items():
+                    db.execute_query(
+                        "UPDATE books SET genre = ? WHERE id = ? AND (genre IS NULL OR genre = '')",
+                        (genre_str, book_id)
+                    )
+
         return jsonify({
             'success': True,
             'profile': profile_data,
             'profile_text': profile_text,
+            'favorite_authors': favorite_authors,
         })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/favorite-authors', methods=['GET'])
+def get_favorite_authors():
+    """Return the user's saved favourite authors."""
+    try:
+        with Database(DB_PATH) as db:
+            rows = db.fetch_all("SELECT value FROM user_settings WHERE key = 'favorite_authors'")
+        authors = json.loads(rows[0]['value']) if rows else []
+        return jsonify({'success': True, 'favorite_authors': authors})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/settings/favorite-authors', methods=['POST'])
+def set_favorite_authors():
+    """Save up to 3 favourite authors chosen by the user."""
+    try:
+        data = request.json or {}
+        authors = data.get('favorite_authors', [])
+        if not isinstance(authors, list):
+            return jsonify({'success': False, 'error': 'favorite_authors must be a list'}), 400
+        # Sanitise: strings only, max 3, strip whitespace
+        authors = [str(a).strip() for a in authors if str(a).strip()][:3]
+        with Database(DB_PATH) as db:
+            db.execute_query(
+                "INSERT OR REPLACE INTO user_settings (key, value) VALUES ('favorite_authors', ?)",
+                (json.dumps(authors),)
+            )
+        return jsonify({'success': True, 'favorite_authors': authors})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

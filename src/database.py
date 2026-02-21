@@ -69,6 +69,14 @@ class Database:
         """
         self.execute_query(profile_query)
         
+        # User-level key/value settings (e.g. favorite_authors)
+        self.execute_query("""
+        CREATE TABLE IF NOT EXISTS user_settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+        """)
+
         # Add columns if they don't exist (for existing databases)
         migrations = [
             "ALTER TABLE books ADD COLUMN cover_url TEXT",

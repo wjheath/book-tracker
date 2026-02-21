@@ -1268,6 +1268,121 @@
             transform: none !important;
             box-shadow: none !important;
         }
+
+        /* ============== PAGINATION ============== */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        .page-btn {
+            min-width: 36px;
+            height: 36px;
+            padding: 0 10px;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--dark);
+            transition: all 0.2s;
+        }
+        .page-btn:hover:not(:disabled) { background: var(--light); border-color: var(--primary); }
+        .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); font-weight: 600; }
+        .page-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
+        .page-info { font-size: 13px; color: #6b7280; padding: 0 4px; }
+
+        /* ============== READER DNA PROFILE ============== */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .profile-card {
+            background: var(--light);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .profile-card h3 {
+            font-size: 15px;
+            color: var(--dark);
+            margin-bottom: 14px;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 8px;
+        }
+        .genre-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 7px;
+            font-size: 13px;
+        }
+        .genre-bar-label { min-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; color: var(--dark); }
+        .genre-bar-track { flex: 1; height: 10px; background: white; border-radius: 5px; overflow: hidden; border: 1px solid var(--border); }
+        .genre-bar-fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--primary), var(--secondary)); transition: width 0.6s ease-out; }
+        .genre-bar-pct { min-width: 34px; text-align: right; color: #6b7280; font-size: 12px; }
+        .profile-author-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 7px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+        .profile-author-item:last-child { border-bottom: none; }
+        .profile-badge { background: var(--primary); color: white; border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+        .profile-stat-row { display: flex; justify-content: space-between; padding: 7px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+        .profile-stat-row:last-child { border-bottom: none; }
+        .profile-stat-label { color: #6b7280; }
+        .profile-stat-value { font-weight: 600; color: var(--dark); }
+        .profile-summary-box {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: 18px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+        .profile-loading { text-align: center; padding: 40px; color: #6b7280; }
+        .recent-tag {
+            display: inline-block;
+            background: #ede9fe;
+            color: var(--primary-dark);
+            border-radius: 12px;
+            padding: 3px 10px;
+            font-size: 12px;
+            margin: 2px;
+        }
+
+        /* ============== REJECTED BOOKS ============== */
+        .rejected-section { margin-top: 30px; border-top: 2px solid var(--border); padding-top: 20px; }
+        .section-header-toggle {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            user-select: none;
+        }
+        .section-header-toggle h3 { font-size: 16px; color: var(--dark); }
+        .toggle-chevron { font-size: 12px; color: #9ca3af; transition: transform 0.2s; }
+        .toggle-chevron.open { transform: rotate(180deg); }
+        .collapsible-body { display: none; margin-top: 14px; }
+        .collapsible-body.open { display: block; }
+        .rejected-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .rejected-table th { text-align: left; padding: 8px 12px; background: var(--light); border-bottom: 2px solid var(--border); color: #374151; font-weight: 600; }
+        .rejected-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .rejected-table tr:last-child td { border-bottom: none; }
+        .rejected-table tr:hover td { background: #fafafa; }
+        .unreject-btn { background: var(--success); color: white; border: none; padding: 4px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; transition: opacity 0.2s; }
+        .unreject-btn:hover { opacity: 0.8; }
+        .rejected-empty { color: #9ca3af; padding: 20px; text-align: center; font-size: 14px; }
     </style>
 </head>
 <body>
@@ -1304,6 +1419,7 @@
             <button class="nav-tab" onclick="switchTab('chat', this)">💬 Book Chat</button>
             <button class="nav-tab" onclick="switchTab('suggestions', this)">🎲 Feeling Lucky</button>
             <button class="nav-tab" onclick="switchTab('import', this)">📥 Import</button>
+            <button class="nav-tab" onclick="switchTab('profile', this)">🧠 Reader DNA</button>
             <button class="nav-tab" onclick="switchTab('admin', this)">🔧 Admin</button>
         </div>
 
@@ -1330,8 +1446,8 @@
                             <option value="title-desc">Title Z-A</option>
                             <option value="author-asc">Author A-Z</option>
                             <option value="author-desc">Author Z-A</option>
-                            <option value="date-desc">Recently Read</option>
-                            <option value="date-asc">Oldest Read</option>
+                            <option value="read_date-desc">Recently Read</option>
+                            <option value="read_date-asc">Oldest Read</option>
                             <option value="id-desc" selected>Recently Added</option>
                             <option value="id-asc">Oldest Added</option>
                         </select>
@@ -1455,6 +1571,18 @@
                 <button id="getSuggestionsBtn" onclick="getSuggestions()">Get Suggestions</button>
                 <div id="suggestionsMessage"></div>
                 <div id="suggestionsContainer" style="margin-top: 20px;"></div>
+
+                <!-- Rejected Books Collapsible Section -->
+                <div class="rejected-section">
+                    <div class="section-header-toggle" onclick="toggleRejected(this)">
+                        <h3>🚫 Rejected Books</h3>
+                        <span class="toggle-chevron" id="rejectedChevron">▼</span>
+                    </div>
+                    <div class="collapsible-body" id="rejectedBody">
+                        <p style="color: #6b7280; font-size: 13px; margin-bottom: 10px;">Books you've said "not interested" to. Un-reject them to make them eligible for suggestions again.</p>
+                        <div id="rejectedContent"><div class="rejected-empty">Loading...</div></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1475,6 +1603,18 @@
                 
                 <div id="importMessage"></div>
                 <div id="importResults"></div>
+            </div>
+        </div>
+
+        <!-- ==================== READER DNA TAB ==================== -->
+        <div class="tab-page" id="tab-profile">
+            <div class="card">
+                <h2>🧠 Reader DNA Profile</h2>
+                <p style="color: #6b7280; margin-bottom: 20px; font-size: 14px;">
+                    A deep analysis of your reading patterns — genre preferences, favorite authors, reading pace, and more.
+                </p>
+                <button id="buildProfileBtn" onclick="loadProfile()" style="width: auto;">🔬 Analyze My Reading DNA</button>
+                <div id="profileContent" style="margin-top: 20px;"></div>
             </div>
         </div>
 
@@ -1540,8 +1680,11 @@
         const API_URL = '/api';
         let currentFilter = null;
         let allBooks = [];
+        let filteredBooks = [];
         let searchQuery = '';
         let currentSort = 'id-desc';
+        let currentPage = 1;
+        const BOOKS_PER_PAGE = 25;
 
         // Admin state
         let adminBooks = [];
@@ -1575,6 +1718,8 @@
             if (tabName === 'admin') adminRefresh();
             if (tabName === 'library') loadBooks();
             if (tabName === 'chat') chatLoadConversations();
+            if (tabName === 'profile') loadProfile();
+            if (tabName === 'suggestions') loadRejected();
         }
 
         // ============== UTILITY ==============
@@ -1685,18 +1830,43 @@
                 );
             }
             filtered = applySorting(filtered);
-            renderBooks(filtered);
+            filteredBooks = filtered;
+            currentPage = 1;
+            renderBooks();
+        }
+
+        // Parse MM/DD/YYYY or YYYY-MM-DD into a comparable integer (YYYYMMDD).
+        // Returns null for empty/invalid — callers push nulls to end.
+        function parseDateVal(str) {
+            if (!str) return null;
+            // MM/DD/YYYY
+            const mdyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (mdyMatch) return parseInt(mdyMatch[3] + mdyMatch[1].padStart(2,'0') + mdyMatch[2].padStart(2,'0'), 10);
+            // YYYY-MM-DD
+            const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (isoMatch) return parseInt(isoMatch[1] + isoMatch[2] + isoMatch[3], 10);
+            return null;
         }
 
         function applySorting(books) {
-            const [field, dir] = currentSort.split('-');
+            const [field, dir] = currentSort.split('-').length >= 2
+                ? [currentSort.slice(0, currentSort.lastIndexOf('-')), currentSort.slice(currentSort.lastIndexOf('-') + 1)]
+                : [currentSort, 'asc'];
             const mult = dir === 'desc' ? -1 : 1;
+            const dateFields = new Set(['read_date', 'date', 'date_added']);
             return [...books].sort((a, b) => {
-                let va = a[field] || '';
-                let vb = b[field] || '';
                 if (field === 'id') return (a.id - b.id) * mult;
-                if (typeof va === 'string') va = va.toLowerCase();
-                if (typeof vb === 'string') vb = vb.toLowerCase();
+                if (dateFields.has(field)) {
+                    const va = parseDateVal(a[field]);
+                    const vb = parseDateVal(b[field]);
+                    // Nulls always sort last regardless of direction
+                    if (va === null && vb === null) return 0;
+                    if (va === null) return 1;
+                    if (vb === null) return -1;
+                    return (va - vb) * mult;
+                }
+                let va = (a[field] || '').toLowerCase();
+                let vb = (b[field] || '').toLowerCase();
                 if (va < vb) return -1 * mult;
                 if (va > vb) return 1 * mult;
                 return 0;
@@ -1760,9 +1930,17 @@
             }
         }
 
-        // ============== RENDER BOOKS ==============
-        function renderBooks(books) {
+        // ============== RENDER BOOKS (with pagination) ==============
+        function renderBooks() {
+            const books = filteredBooks;
             const container = document.getElementById('bookListContainer');
+            const total = books.length;
+            const totalPages = Math.max(1, Math.ceil(total / BOOKS_PER_PAGE));
+            if (currentPage > totalPages) currentPage = totalPages;
+            if (currentPage < 1) currentPage = 1;
+
+            const startIdx = (currentPage - 1) * BOOKS_PER_PAGE;
+            const pageBooks = books.slice(startIdx, startIdx + BOOKS_PER_PAGE);
 
             if (books.length === 0) {
                 container.innerHTML = `
@@ -1775,9 +1953,9 @@
             }
 
             container.innerHTML = `
-                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 10px;">Showing ${books.length} book${books.length !== 1 ? 's' : ''}</p>
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 10px;">Showing ${startIdx + 1}–${Math.min(startIdx + BOOKS_PER_PAGE, total)} of ${total} book${total !== 1 ? 's' : ''}</p>
                 <div class="book-list">
-                    ${books.map(book => `
+                    ${pageBooks.map(book => `
                         <div class="book-item" id="book-item-${book.id}">
                             <div class="book-content">
                                 ${book.cover_url ?
@@ -1801,7 +1979,7 @@
                             </div>
                         </div>
                     `).join('')}
-                </div>`;
+                </div>${renderPagination(totalPages)}`;
 
             fetchMissingCovers();
         }
@@ -1883,6 +2061,71 @@
         }
 
         // ============== BOOK COVERS ==============
+
+        // Map Open Library subject strings → our genre vocabulary.
+        // Each entry: [subjectFragment (lowercase), genreLabel].
+        // Checked with String.includes() so partial matches work.
+        const OL_SUBJECT_MAP = [
+            ['urban fantasy',        'urban fantasy'],
+            ['fantasy',              'fantasy'],
+            ['magic',                'fantasy'],
+            ['wizard',               'fantasy'],
+            ['dragon',               'fantasy'],
+            ['fairy',                'fantasy'],
+            ['mytholog',             'fantasy'],
+            ['science fiction',      'science fiction'],
+            ['space opera',          'science fiction'],
+            ['cyberpunk',            'science fiction'],
+            ['dystopi',              'dystopian'],
+            ['mystery',              'mystery'],
+            ['detective',            'mystery'],
+            ['crime fiction',        'mystery'],
+            ['thriller',             'thriller'],
+            ['suspense',             'thriller'],
+            ['horror',               'horror'],
+            ['ghost stori',          'horror'],
+            ['occult',               'horror'],
+            ['romance',              'romance'],
+            ['historical fiction',   'historical fiction'],
+            ['historical novel',     'historical fiction'],
+            ['literary fiction',     'literary fiction'],
+            ['psychological fiction','literary fiction'],
+            ['magical realism',      'magical realism'],
+            ['young adult',          'young adult'],
+            ['juvenile fiction',     'young adult'],
+            ['children',             'children'],
+            ['graphic novel',        'graphic novel'],
+            ['comic',                'graphic novel'],
+            ['manga',                'graphic novel'],
+            ['biography',            'memoir'],
+            ['autobiography',        'memoir'],
+            ['memoir',               'memoir'],
+            ['nonfiction',           'non-fiction'],
+            ['non-fiction',          'non-fiction'],
+            ['history',              'history'],
+            ['poetry',               'poetry'],
+            ['short stories',        'short stories'],
+            ['humor',                'humor'],
+            ['satire',               'humor'],
+        ];
+
+        function normalizeOLSubjects(subjects) {
+            if (!subjects || !subjects.length) return '';
+            const seen = new Set();
+            const genres = [];
+            for (const subj of subjects) {
+                const sl = subj.toLowerCase();
+                for (const [frag, genre] of OL_SUBJECT_MAP) {
+                    if (sl.includes(frag) && !seen.has(genre)) {
+                        seen.add(genre);
+                        genres.push(genre);
+                    }
+                }
+                if (genres.length >= 4) break; // cap at 4 genres per book
+            }
+            return genres.join(', ');
+        }
+
         async function fetchMissingCovers() {
             const placeholders = document.querySelectorAll('.book-cover-placeholder[data-book-id]');
             for (const placeholder of placeholders) {
@@ -1893,36 +2136,57 @@
                 if (book && book.cover_url) continue;
 
                 try {
-                    const coverUrl = await fetchCoverUrl(title, author);
-                    if (coverUrl) {
-                        placeholder.outerHTML = `<img src="${coverUrl}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>📖</div>'">`;
-                        if (book) book.cover_url = coverUrl;
-                        saveCoverUrl(bookId, coverUrl);
+                    const meta = await fetchBookMetadata(title, author);
+                    if (meta.coverUrl) {
+                        placeholder.outerHTML = `<img src="${meta.coverUrl}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>📖</div>'">`;
+                        if (book) {
+                            book.cover_url = meta.coverUrl;
+                            if (!book.genre && meta.genre) book.genre = meta.genre;
+                        }
+                        saveCoverAndGenre(bookId, meta.coverUrl, meta.genre || '');
                     }
                 } catch (e) { /* silently fail */ }
             }
         }
 
-        async function fetchCoverUrl(title, author) {
+        // Primary metadata fetch: cover + genre from the same Open Library call.
+        async function fetchBookMetadata(title, author) {
             try {
                 const query = encodeURIComponent(`${title} ${author}`);
-                const response = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=1`);
+                const response = await fetch(`https://openlibrary.org/search.json?q=${query}&limit=1&fields=cover_i,subject`);
                 const data = await response.json();
-                if (data.docs && data.docs.length > 0 && data.docs[0].cover_i) {
-                    return `https://covers.openlibrary.org/b/id/${data.docs[0].cover_i}-M.jpg`;
+                if (data.docs && data.docs.length > 0) {
+                    const doc = data.docs[0];
+                    const coverUrl = doc.cover_i
+                        ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
+                        : null;
+                    const genre = normalizeOLSubjects(doc.subject || []);
+                    return { coverUrl, genre };
                 }
             } catch (e) { }
-            return null;
+            return { coverUrl: null, genre: '' };
         }
 
-        async function saveCoverUrl(bookId, coverUrl) {
+        // Legacy alias for any remaining callers
+        async function fetchCoverUrl(title, author) {
+            return (await fetchBookMetadata(title, author)).coverUrl;
+        }
+
+        async function saveCoverAndGenre(bookId, coverUrl, genre) {
             try {
+                const body = { cover_url: coverUrl };
+                if (genre) body.genre = genre;
                 await fetch(`${API_URL}/books/${bookId}/cover`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ cover_url: coverUrl })
+                    body: JSON.stringify(body)
                 });
             } catch (e) { }
+        }
+
+        // Legacy alias
+        async function saveCoverUrl(bookId, coverUrl) {
+            return saveCoverAndGenre(bookId, coverUrl, '');
         }
 
         // ============== SUGGESTIONS ==============
@@ -2100,12 +2364,19 @@
 
             const col = adminSortCol;
             const mult = adminSortDir === 'desc' ? -1 : 1;
+            const dateFields = new Set(['read_date', 'date_added']);
             books.sort((a, b) => {
-                let va = a[col] ?? '';
-                let vb = b[col] ?? '';
-                if (col === 'id') return (Number(va) - Number(vb)) * mult;
-                va = String(va).toLowerCase();
-                vb = String(vb).toLowerCase();
+                if (col === 'id') return (Number(a[col] ?? 0) - Number(b[col] ?? 0)) * mult;
+                if (dateFields.has(col)) {
+                    const va = parseDateVal(String(a[col] || ''));
+                    const vb = parseDateVal(String(b[col] || ''));
+                    if (va === null && vb === null) return 0;
+                    if (va === null) return 1;
+                    if (vb === null) return -1;
+                    return (va - vb) * mult;
+                }
+                let va = String(a[col] ?? '').toLowerCase();
+                let vb = String(b[col] ?? '').toLowerCase();
                 if (va < vb) return -1 * mult;
                 if (va > vb) return 1 * mult;
                 return 0;
@@ -2723,13 +2994,13 @@
                     // Clear welcome screen
                     messagesEl.innerHTML = '';
 
-                    // Render conversation messages
+                    // Render conversation messages (pass stored suggestions to restore cards)
                     messages.forEach(m => {
                         const isUser = m.role === 'user';
                         messagesEl.innerHTML += `
                             <div class="chat-message ${isUser ? 'user' : 'assistant'}">
                                 <div class="avatar">${isUser ? '👤' : '📚'}</div>
-                                <div class="chat-bubble">${isUser ? escapeHtml(m.content) : formatChatResponse(m.content, [])}</div>
+                                <div class="chat-bubble">${isUser ? escapeHtml(m.content) : formatChatResponse(m.content, m.suggestions || [])}</div>
                             </div>`;
                     });
 
@@ -2753,6 +3024,341 @@
                 toast('Conversation deleted', 'success');
             } catch (e) {
                 toast('Failed to delete', 'error');
+            }
+        }
+
+        // ====================================================================
+        //  PAGINATION
+        // ====================================================================
+
+        function renderPagination(totalPages) {
+            if (totalPages <= 1) return '';
+            const maxVisible = 7;
+            let pages = [];
+            if (totalPages <= maxVisible) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages = [1];
+                if (currentPage > 3) pages.push('...');
+                const start = Math.max(2, currentPage - 1);
+                const end = Math.min(totalPages - 1, currentPage + 1);
+                for (let i = start; i <= end; i++) pages.push(i);
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+            }
+            const btns = pages.map(p => {
+                if (p === '...') return `<span class="page-info">…</span>`;
+                return `<button class="page-btn${p === currentPage ? ' active' : ''}" onclick="changePage(${p})">${p}</button>`;
+            }).join('');
+            return `<div class="pagination">
+                <button class="page-btn" onclick="changePage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Prev</button>
+                ${btns}
+                <button class="page-btn" onclick="changePage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next ›</button>
+            </div>`;
+        }
+
+        function changePage(n) {
+            const totalPages = Math.max(1, Math.ceil(filteredBooks.length / BOOKS_PER_PAGE));
+            if (n < 1 || n > totalPages) return;
+            currentPage = n;
+            renderBooks();
+            document.getElementById('bookListContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // ====================================================================
+        //  READER DNA PROFILE
+        // ====================================================================
+
+        let profileLoaded = false;
+
+        async function loadProfile() {
+            const content = document.getElementById('profileContent');
+            content.innerHTML = '<div class="profile-loading"><div class="spinner"></div><p style="margin-top:15px;">Analyzing your reading DNA...</p></div>';
+            document.getElementById('buildProfileBtn').disabled = true;
+            try {
+                const response = await fetch(`${API_URL}/profile`);
+                const data = await response.json();
+                if (data.success) {
+                    renderProfile(data.profile);
+                    profileLoaded = true;
+                } else {
+                    content.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error || 'Could not build profile. Make sure you have read books in your library.')}</div>`;
+                }
+            } catch (e) {
+                content.innerHTML = `<div class="alert alert-error">Error: ${escapeHtml(e.message)}</div>`;
+            } finally {
+                document.getElementById('buildProfileBtn').disabled = false;
+                document.getElementById('buildProfileBtn').textContent = '🔄 Refresh Profile';
+            }
+        }
+
+        function renderProfile(p) {
+            const content = document.getElementById('profileContent');
+            const genreDist = (p.genre_distribution && p.genre_distribution.distribution) || [];
+            const authors = (p.author_analysis && p.author_analysis.favorite_authors) || [];
+            const pace = p.reading_pace || {};
+            const recency = p.recency_profile || {};
+            const series = p.series_preference || {};
+            const stats = p.library_stats || {};
+
+            // Summary box
+            let html = `<div class="profile-summary-box">${escapeHtml(p.summary || '')}</div>`;
+            html += `<div class="profile-grid">`;
+
+            // Genre distribution card
+            if (genreDist.length > 0) {
+                const barsHtml = genreDist.slice(0, 10).map(([genre, count, pct]) => `
+                    <div class="genre-bar-row">
+                        <span class="genre-bar-label" title="${escapeHtml(genre)}">${escapeHtml(genre)}</span>
+                        <div class="genre-bar-track"><div class="genre-bar-fill" style="width:${Math.round(pct)}%"></div></div>
+                        <span class="genre-bar-pct">${Math.round(pct)}%</span>
+                    </div>`).join('');
+                html += `<div class="profile-card"><h3>📚 Genre Distribution</h3>${barsHtml}</div>`;
+            }
+
+            // Favorite authors card — user-selectable, up to 3
+            const userFavs = (p.author_analysis && p.author_analysis.user_favorites) || [];
+            const allReadAuths = (p.author_analysis && p.author_analysis.all_read_authors) || [];
+            window._profileAllAuthors = allReadAuths;
+            window._profileFavAuthors = [...userFavs];
+
+            const favItemsHtml = userFavs.length > 0
+                ? userFavs.map(a => `
+                    <div class="profile-author-item">
+                        <span>${escapeHtml(a)}</span>
+                        <span class="profile-badge">⭐ your pick</span>
+                    </div>`).join('')
+                : `<p style="font-size:13px;color:#9ca3af;margin:0 0 6px;">No favorites set — pick up to 3 below.</p>`;
+
+            html += `<div class="profile-card">
+                <h3>✍️ Favorite Authors</h3>
+                ${favItemsHtml}
+                <button class="secondary" onclick="toggleFavPicker()" style="width:auto;padding:5px 12px;font-size:12px;margin-top:8px;">
+                    ${userFavs.length > 0 ? '✏️ Edit Favorites' : '⭐ Set Favorites'}
+                </button>
+                <div id="favPickerPanel" style="display:none;margin-top:12px;border-top:1px solid #e5e7eb;padding-top:12px;">
+                    <p style="font-size:12px;color:#6b7280;margin:0 0 6px;">Select up to 3 — these replace computed guesses in recommendations.</p>
+                    <input id="favSearchInput" type="text" placeholder="🔍 Search authors..."
+                           oninput="renderFavPicker()"
+                           style="width:100%;padding:5px 8px;font-size:12px;border:1px solid #d1d5db;border-radius:4px;margin-bottom:6px;box-sizing:border-box;">
+                    <div id="favPickerList" style="max-height:190px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:4px;padding:4px;"></div>
+                    <div style="margin-top:8px;display:flex;align-items:center;gap:10px;">
+                        <span id="favSelectedCount" style="font-size:12px;color:#6b7280;">0/3 selected</span>
+                        <button id="saveFavBtn" onclick="saveFavoriteAuthors()" style="width:auto;padding:5px 12px;font-size:12px;">💾 Save Favorites</button>
+                    </div>
+                </div>
+            </div>`;
+
+            // Reading pace card
+            html += `<div class="profile-card"><h3>⏱️ Reading Pace</h3>
+                <div class="profile-stat-row"><span class="profile-stat-label">Pace</span><span class="profile-stat-value">${escapeHtml(pace.description || 'N/A')}</span></div>
+                ${pace.books_per_month != null ? `<div class="profile-stat-row"><span class="profile-stat-label">Books/month</span><span class="profile-stat-value">${Number(pace.books_per_month).toFixed(1)}</span></div>` : ''}
+            </div>`;
+
+            // Recent interests card
+            if (recency.recent_genres && recency.recent_genres.length > 0) {
+                const recentGenres = recency.recent_genres.slice(0, 8).map(g => `<span class="recent-tag">${escapeHtml(g)}</span>`).join('');
+                const recentAuthors = (recency.recent_authors || []).slice(0, 5)
+                    .map(a => `<span class="recent-tag">${escapeHtml(a)}</span>`).join('');
+                html += `<div class="profile-card"><h3>🕐 Recent Interests</h3>
+                    <div style="margin-bottom:10px;"><strong style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">GENRES</strong>${recentGenres}</div>
+                    ${recentAuthors ? `<div><strong style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px;">AUTHORS</strong>${recentAuthors}</div>` : ''}
+                </div>`;
+            }
+
+            // Author loyalty card
+            const loyalty = p.author_analysis || {};
+            html += `<div class="profile-card"><h3>🔗 Reading Patterns</h3>
+                <div class="profile-stat-row"><span class="profile-stat-label">Unique authors</span><span class="profile-stat-value">${loyalty.total_unique_authors || 0}</span></div>
+                <div class="profile-stat-row"><span class="profile-stat-label">Author loyalty</span><span class="profile-stat-value">${loyalty.loyalty_score != null ? Math.round(loyalty.loyalty_score * 100) + '%' : 'N/A'}</span></div>
+                <div class="profile-stat-row"><span class="profile-stat-label">Discovery rate</span><span class="profile-stat-value">${loyalty.one_hit_authors_pct != null ? Math.round(loyalty.one_hit_authors_pct) + '%' : 'N/A'} read once</span></div>
+            </div>`;
+
+            // Series preference card
+            if (series.description) {
+                let seriesHtml = `<div class="profile-stat-row"><span class="profile-stat-label">Preference</span><span class="profile-stat-value" style="max-width:180px;text-align:right;font-size:12px;">${escapeHtml(series.description)}</span></div>`;
+                if (series.active_series && series.active_series.length > 0) {
+                    seriesHtml += `<div style="margin-top:10px;font-size:12px;color:#6b7280;font-weight:600;">LIKELY IN A SERIES</div>`;
+                    series.active_series.slice(0, 3).forEach(s => {
+                        seriesHtml += `<div class="profile-stat-row" style="flex-direction:column;align-items:flex-start;gap:2px;">
+                            <span style="font-weight:600;">${escapeHtml(s.author || '')}</span>
+                            <span style="color:#6b7280;font-size:12px;">${escapeHtml((s.titles || []).slice(0, 3).join(', '))}</span>
+                        </div>`;
+                    });
+                }
+                html += `<div class="profile-card"><h3>📖 Series vs Standalone</h3>${seriesHtml}</div>`;
+            }
+
+            // Library stats
+            if (Object.keys(stats).length > 0) {
+                const statsHtml = Object.entries(stats).map(([k, v]) =>
+                    `<div class="profile-stat-row"><span class="profile-stat-label">${escapeHtml(k.replace(/_/g,' '))}</span><span class="profile-stat-value">${escapeHtml(String(v))}</span></div>`
+                ).join('');
+                html += `<div class="profile-card"><h3>📊 Library Stats</h3>${statsHtml}</div>`;
+            }
+
+            html += `</div>`;
+            content.innerHTML = html;
+        }
+
+        // ====================================================================
+        //  FAVORITE AUTHORS PICKER (Reader DNA tab)
+        // ====================================================================
+
+        function toggleFavPicker() {
+            const panel = document.getElementById('favPickerPanel');
+            if (!panel) return;
+            const opening = panel.style.display === 'none';
+            panel.style.display = opening ? 'block' : 'none';
+            if (opening) {
+                const searchEl = document.getElementById('favSearchInput');
+                if (searchEl) searchEl.value = '';
+                renderFavPicker();
+            }
+        }
+
+        function renderFavPicker() {
+            const listEl = document.getElementById('favPickerList');
+            if (!listEl) return;
+            const search = (document.getElementById('favSearchInput')?.value || '').toLowerCase();
+            const all = window._profileAllAuthors || [];
+            const favs = window._profileFavAuthors || [];
+            const filtered = search ? all.filter(a => a.toLowerCase().includes(search)) : all;
+            listEl.innerHTML = filtered.map(a => {
+                const sel = favs.includes(a);
+                const dis = !sel && favs.length >= 3;
+                return `<label style="display:flex;align-items:center;padding:4px 8px;cursor:${dis ? 'not-allowed' : 'pointer'};border-radius:4px;${sel ? 'background:#eff6ff;font-weight:500;' : ''}opacity:${dis ? '0.45' : '1'};">
+                    <input type="checkbox" data-author="${escapeHtml(a)}" ${sel ? 'checked' : ''} ${dis ? 'disabled' : ''}
+                           onchange="toggleFavAuthor(this)" style="margin-right:8px;flex-shrink:0;">
+                    <span style="font-size:13px;">${escapeHtml(a)}</span>
+                </label>`;
+            }).join('');
+            const countEl = document.getElementById('favSelectedCount');
+            if (countEl) countEl.textContent = `${favs.length}/3 selected`;
+        }
+
+        function toggleFavAuthor(el) {
+            const name = el.dataset.author;
+            if (!name) return;
+            if (el.checked) {
+                if ((window._profileFavAuthors || []).length < 3) {
+                    window._profileFavAuthors = window._profileFavAuthors || [];
+                    window._profileFavAuthors.push(name);
+                } else {
+                    el.checked = false;
+                    return;
+                }
+            } else {
+                window._profileFavAuthors = (window._profileFavAuthors || []).filter(a => a !== name);
+            }
+            renderFavPicker();
+        }
+
+        async function saveFavoriteAuthors() {
+            const btn = document.getElementById('saveFavBtn');
+            if (!btn) return;
+            btn.disabled = true;
+            btn.textContent = 'Saving...';
+            try {
+                const resp = await fetch(`${API_URL}/settings/favorite-authors`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ favorite_authors: window._profileFavAuthors || [] })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    btn.textContent = '✓ Saved!';
+                    setTimeout(loadProfile, 900);
+                } else {
+                    btn.textContent = 'Error — try again';
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                btn.textContent = 'Error — try again';
+                btn.disabled = false;
+            }
+        }
+
+        // ====================================================================
+        //  REJECTED BOOKS MANAGEMENT
+        // ====================================================================
+
+        let rejectedLoaded = false;
+
+        function toggleRejected(headerEl) {
+            const body = document.getElementById('rejectedBody');
+            const chevron = document.getElementById('rejectedChevron');
+            const isOpen = body.classList.toggle('open');
+            chevron.classList.toggle('open', isOpen);
+            if (isOpen && !rejectedLoaded) {
+                loadRejected();
+            }
+        }
+
+        async function loadRejected() {
+            const el = document.getElementById('rejectedContent');
+            if (!el) return;
+            try {
+                const response = await fetch(`${API_URL}/rejected`);
+                const data = await response.json();
+                if (data.success) {
+                    renderRejected(data.rejected || []);
+                    rejectedLoaded = true;
+                }
+            } catch (e) {
+                if (el) el.innerHTML = '<div class="rejected-empty">Failed to load rejected books.</div>';
+            }
+        }
+
+        function renderRejected(rejected) {
+            const el = document.getElementById('rejectedContent');
+            if (!el) return;
+            if (rejected.length === 0) {
+                el.innerHTML = '<div class="rejected-empty">No rejected books. When you click "Not Interested" on a suggestion, it appears here.</div>';
+                return;
+            }
+            el.innerHTML = `<table class="rejected-table">
+                <thead><tr><th>Title</th><th>Author</th><th>Rejected</th><th></th></tr></thead>
+                <tbody>
+                    ${rejected.map(r => `<tr id="rejected-row-${r.id}">
+                        <td>${escapeHtml(r.title || '')}</td>
+                        <td>${escapeHtml(r.author || '')}</td>
+                        <td style="color:#9ca3af;">${escapeHtml((r.rejected_date || '').split(' ')[0])}</td>
+                        <td><button class="unreject-btn" data-id="${r.id}" onclick="unrejectBook(${r.id}, this)">✓ Un-reject</button></td>
+                    </tr>`).join('')}
+                </tbody>
+            </table>`;
+        }
+
+        async function unrejectBook(id, btn) {
+            btn.disabled = true;
+            btn.textContent = '...';
+            try {
+                const response = await fetch(`${API_URL}/rejected/${id}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (data.success) {
+                    const row = document.getElementById(`rejected-row-${id}`);
+                    if (row) {
+                        row.style.transition = 'opacity 0.3s';
+                        row.style.opacity = '0';
+                        setTimeout(() => {
+                            row.remove();
+                            const tbody = document.querySelector('.rejected-table tbody');
+                            if (tbody && tbody.children.length === 0) {
+                                renderRejected([]);
+                            }
+                        }, 300);
+                    }
+                    toast('Book un-rejected — it may appear in future suggestions', 'success');
+                } else {
+                    btn.disabled = false;
+                    btn.textContent = '✓ Un-reject';
+                    toast(data.error || 'Failed to un-reject', 'error');
+                }
+            } catch (e) {
+                btn.disabled = false;
+                btn.textContent = '✓ Un-reject';
+                toast('Error: ' + e.message, 'error');
             }
         }
 

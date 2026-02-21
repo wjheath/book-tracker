@@ -1,8 +1,14 @@
 import os
+import re
 import sys
 import time
 import traceback
 from typing import List, Dict
+
+
+def _normalize_title(title: str) -> str:
+    """Normalize a title for deduplication: lowercase, strip all non-alphanumeric chars."""
+    return re.sub(r'[^a-z0-9]', '', (title or '').lower())
 
 # Use the official OpenAI client (2.x) quickstart pattern
 try:
@@ -131,11 +137,21 @@ class LLM_Suggester:
             return []
 
         # Sort reading history by date (most recent first) if dates available
-        sorted_history = sorted(
-            reading_history,
-            key=lambda b: b.get('read_date', '') or '',
-            reverse=True
-        )
+        def _parse_date_sortkey(book):
+            rd = book.get('read_date') or ''
+            if not rd:
+                return 0  # no date → sort last
+            # MM/DD/YYYY
+            m = re.match(r'^(\d{1,2})/(\d{1,2})/(\d{4})$', rd.strip())
+            if m:
+                return int(m.group(3)) * 10000 + int(m.group(1)) * 100 + int(m.group(2))
+            # YYYY-MM-DD
+            m = re.match(r'^(\d{4})-(\d{2})-(\d{2})$', rd.strip())
+            if m:
+                return int(m.group(1)) * 10000 + int(m.group(2)) * 100 + int(m.group(3))
+            return 0
+
+        sorted_history = sorted(reading_history, key=_parse_date_sortkey, reverse=True)
         
         # Build detailed books list with recency markers
         books_list = ""
@@ -205,6 +221,22 @@ class LLM_Suggester:
                 print(f"Trying model: {candidate}")
                 text = self._call_model(prompt, model=candidate, max_tokens=1200)
                 suggestions = self.parse_suggestions(text)
+
+                # Hard filter: NEVER return a book already in the library, regardless of
+                # what the LLM says. Normalize titles to catch case/punctuation variants.
+                library_norm = {
+                    _normalize_title(b.get('title', ''))
+                    for b in (all_books or [])
+                    if b.get('title')
+                }
+                before = len(suggestions)
+                suggestions = [
+                    s for s in suggestions
+                    if _normalize_title(s.get('title', '')) not in library_norm
+                ]
+                if len(suggestions) < before:
+                    print(f"[Filter] Removed {before - len(suggestions)} library book(s) from suggestions.")
+
                 print(f"[OK] Got {len(suggestions)} suggestions from {candidate}")
                 return suggestions
             except Exception as e:

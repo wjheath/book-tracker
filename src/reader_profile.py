@@ -10,6 +10,9 @@ This goes beyond simple "you read X" analysis. It detects:
 - Recency-weighted interests (what they're into NOW vs historically)
 """
 
+import json as _json
+import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
@@ -18,37 +21,256 @@ from typing import List, Dict, Optional, Tuple
 class ReaderProfile:
     """Builds and maintains a comprehensive reader preference profile."""
 
-    # Known genre keywords for lightweight genre inference when genre field is empty
-    GENRE_HINTS = {
-        'fantasy': ['magic', 'dragon', 'throne', 'kingdom', 'sword', 'quest', 'wizard', 'elf', 'ring'],
-        'sci-fi': ['space', 'star', 'galaxy', 'robot', 'android', 'mars', 'alien', 'future', 'cyber'],
-        'mystery': ['murder', 'detective', 'crime', 'suspect', 'clue', 'mystery', 'investigation'],
-        'thriller': ['spy', 'assassin', 'conspiracy', 'chase', 'danger', 'hunt', 'secret'],
-        'romance': ['love', 'heart', 'kiss', 'passion', 'desire', 'wedding', 'bride'],
-        'horror': ['ghost', 'haunted', 'dark', 'nightmare', 'dead', 'blood', 'fear', 'terror'],
-        'historical': ['war', 'empire', 'king', 'queen', 'century', 'ancient', 'medieval', 'colonial'],
-        'literary fiction': ['life', 'story', 'memoir', 'journey', 'truth', 'beauty'],
-        'non-fiction': ['how', 'why', 'history', 'science', 'guide', 'biography', 'autobiography'],
-        'dystopian': ['dystopia', 'rebellion', 'control', 'society', 'government', 'surveillance'],
-        'young adult': ['school', 'teen', 'coming of age', 'growing up'],
+    # ── Author → genre list (takes precedence over title keywords) ──────────
+    # Covers hundreds of widely-read authors; match is done on normalised name
+    # (lowercase, punctuation stripped) so "J.K. Rowling" == "jk rowling".
+    AUTHOR_GENRES: Dict[str, List[str]] = {
+        # Literary Fiction / Contemporary
+        'haruki murakami':      ['literary fiction', 'magical realism'],
+        'ben lerner':           ['literary fiction'],
+        'percival everett':     ['literary fiction'],
+        'kaveh akbar':          ['literary fiction', 'poetry'],
+        'john williams':        ['literary fiction'],
+        'oscar wilde':          ['literary fiction', 'classic'],
+        'albert camus':         ['literary fiction', 'philosophy'],
+        'franz kafka':          ['literary fiction', 'absurdism'],
+        'gabriel garcia marquez':['literary fiction', 'magical realism'],
+        'toni morrison':        ['literary fiction'],
+        'cormac mccarthy':      ['literary fiction', 'western', 'horror'],
+        'don delillo':          ['literary fiction'],
+        'philip roth':          ['literary fiction'],
+        'ian mcewan':           ['literary fiction'],
+        'kazuo ishiguro':       ['literary fiction', 'science fiction'],
+        'colson whitehead':     ['literary fiction', 'historical fiction'],
+        'jesmyn ward':          ['literary fiction'],
+        'chimamanda ngozi adichie': ['literary fiction'],
+        'zadie smith':          ['literary fiction'],
+        'salman rushdie':       ['literary fiction', 'magical realism'],
+        'david sedaris':        ['memoir', 'humor'],
+        'jr moehringer':        ['memoir', 'non-fiction'],
+        'j r moehringer':       ['memoir', 'non-fiction'],
+        # Fantasy
+        'robin hobb':           ['fantasy'],
+        'brandon sanderson':    ['fantasy'],
+        'terry pratchett':      ['fantasy', 'humor'],
+        'neil gaiman':          ['fantasy', 'horror'],
+        'ursula k le guin':     ['fantasy', 'science fiction'],
+        'ursula le guin':       ['fantasy', 'science fiction'],
+        'j r r tolkien':        ['fantasy'],
+        'jrr tolkien':          ['fantasy'],
+        'george rr martin':     ['fantasy'],
+        'george r r martin':    ['fantasy'],
+        'patrick rothfuss':     ['fantasy'],
+        'joe abercrombie':      ['fantasy'],
+        'scott lynch':          ['fantasy'],
+        'steven erikson':       ['fantasy'],
+        'robert jordan':        ['fantasy'],
+        'guy gavriel kay':      ['fantasy', 'historical fiction'],
+        'susanna clarke':       ['fantasy', 'historical fiction'],
+        'naomi novik':          ['fantasy', 'historical fiction'],
+        'k j parker':           ['fantasy'],
+        'terry goodkind':       ['fantasy'],
+        'raymond e feist':      ['fantasy'],
+        'david gemmell':        ['fantasy'],
+        'michael j sullivan':   ['fantasy'],
+        'christopher paolini':  ['fantasy', 'young adult'],
+        'cinda williams chima': ['fantasy', 'young adult'],
+        'tamora pierce':        ['fantasy', 'young adult'],
+        'rick riordan':         ['fantasy', 'mythology', 'young adult'],
+        'cs lewis':             ['fantasy', 'children'],
+        'c s lewis':            ['fantasy', 'children'],
+        'jk rowling':           ['fantasy', 'young adult'],
+        'j k rowling':          ['fantasy', 'young adult'],
+        'matt dinniman':        ['fantasy', 'humor'],
+        'jim butcher':          ['fantasy', 'urban fantasy'],
+        'ilona andrews':        ['fantasy', 'urban fantasy', 'romance'],
+        'patricia briggs':      ['fantasy', 'urban fantasy'],
+        'larry correia':        ['fantasy', 'urban fantasy'],
+        'kevin hearne':         ['fantasy', 'urban fantasy'],
+        'peter v brett':        ['fantasy'],
+        'brent weeks':          ['fantasy'],
+        'sam sykes':            ['fantasy'],
+        'mark lawrence':        ['fantasy'],
+        'michael j sulliven':   ['fantasy'],
+        'will wight':           ['fantasy'],
+        'andrew rowe':          ['fantasy'],
+        'travis baldree':       ['fantasy', 'cozy'],
+        'becky chambers':       ['science fiction', 'cozy'],
+        # Horror
+        'christopher buehlman': ['horror', 'fantasy'],
+        'stephen king':         ['horror', 'thriller'],
+        'shirley jackson':      ['horror', 'literary fiction'],
+        'hp lovecraft':         ['horror'],
+        'h p lovecraft':        ['horror'],
+        'clive barker':         ['horror', 'fantasy'],
+        'peter straub':         ['horror'],
+        'paul tremblay':        ['horror'],
+        'josh malerman':        ['horror', 'thriller'],
+        'grady hendrix':        ['horror', 'humor'],
+        'adam nevill':          ['horror'],
+        'john dies at the end': ['horror', 'humor'],
+        # Science Fiction
+        'ted chiang':           ['science fiction'],
+        'jeff vandermeer':      ['science fiction', 'weird fiction'],
+        'pierce brown':         ['science fiction', 'dystopian'],
+        'andy weir':            ['science fiction'],
+        'kim stanley robinson': ['science fiction'],
+        'ursula k leguin':      ['science fiction', 'fantasy'],
+        'isaac asimov':         ['science fiction'],
+        'arthur c clarke':      ['science fiction'],
+        'philip k dick':        ['science fiction'],
+        'kurt vonnegut':        ['science fiction', 'literary fiction'],
+        'frank herbert':        ['science fiction'],
+        'dan simmons':          ['science fiction', 'horror'],
+        'ann leckie':           ['science fiction'],
+        'n k jemisin':          ['science fiction', 'fantasy'],
+        'octavia butler':       ['science fiction'],
+        'cixin liu':            ['science fiction'],
+        'peter watts':          ['science fiction'],
+        'alastair reynolds':    ['science fiction'],
+        'peter f hamilton':     ['science fiction'],
+        'iain m banks':         ['science fiction'],
+        # Mystery / Thriller / Crime
+        'agatha christie':      ['mystery', 'classic'],
+        'raymond chandler':     ['mystery', 'noir'],
+        'dashiell hammett':     ['mystery', 'noir'],
+        'donna tartt':          ['literary fiction', 'mystery'],
+        'tana french':          ['mystery', 'literary fiction'],
+        'gillian flynn':        ['thriller', 'mystery'],
+        'stieg larsson':        ['thriller', 'mystery'],
+        'jo nesbo':             ['thriller', 'mystery'],
+        'lee child':            ['thriller'],
+        'michael connelly':     ['mystery', 'thriller'],
+        'john le carre':        ['thriller', 'spy'],
+        'james ellroy':         ['mystery', 'noir'],
+        # Historical Fiction
+        'hilary mantel':        ['historical fiction', 'literary fiction'],
+        'ken follett':          ['historical fiction', 'thriller'],
+        'colleen mccullough':   ['historical fiction'],
+        'philippa gregory':     ['historical fiction'],
+        'bernard cornwell':     ['historical fiction', 'adventure'],
+        'robert harris':        ['historical fiction', 'thriller'],
+        # Romance
+        'nora roberts':         ['romance'],
+        'julia quinn':          ['romance', 'historical fiction'],
+        'lisa kleypas':         ['romance', 'historical fiction'],
+        # Non-fiction
+        'david j silbey':       ['history', 'non-fiction'],
+        'mary roach':           ['non-fiction', 'humor', 'science'],
+        'bill bryson':          ['non-fiction', 'humor'],
+        'malcolm gladwell':     ['non-fiction'],
+        'michael lewis':        ['non-fiction'],
+        'yuval noah harari':    ['non-fiction', 'history'],
+        # Graphic Novel / Comics
+        'rhea ewing':           ['graphic novel'],
+        'art spiegelman':       ['graphic novel', 'memoir'],
+        'alison bechdel':       ['graphic novel', 'memoir'],
+        'craig thompson':       ['graphic novel', 'memoir'],
     }
 
-    def __init__(self, books: List[Dict], all_books: Optional[List[Dict]] = None):
+    # ── Open Library subject → our genre vocabulary ────────────────────────
+    # Checked with str.find() so "Fantasy fiction" matches "fantasy", etc.
+    # Order matters: more-specific phrases must come before their substrings.
+    OL_SUBJECT_MAP: List[Tuple[str, str]] = [
+        ('urban fantasy',         'urban fantasy'),
+        ('fantasy',               'fantasy'),
+        ('magic',                 'fantasy'),
+        ('wizard',                'fantasy'),
+        ('dragon',                'fantasy'),
+        ('fairy',                 'fantasy'),
+        ('mytholog',              'fantasy'),
+        ('science fiction',       'science fiction'),
+        ('space opera',           'science fiction'),
+        ('cyberpunk',             'science fiction'),
+        ('dystopi',               'dystopian'),
+        ('mystery',               'mystery'),
+        ('detective',             'mystery'),
+        ('crime fiction',         'mystery'),
+        ('thriller',              'thriller'),
+        ('suspense',              'thriller'),
+        ('horror',                'horror'),
+        ('ghost stori',           'horror'),
+        ('occult',                'horror'),
+        ('romance',               'romance'),
+        ('historical fiction',    'historical fiction'),
+        ('historical novel',      'historical fiction'),
+        ('literary fiction',      'literary fiction'),
+        ('psychological fiction',  'literary fiction'),
+        ('magical realism',       'magical realism'),
+        ('young adult',           'young adult'),
+        ('juvenile fiction',      'young adult'),
+        ('graphic novel',         'graphic novel'),
+        ('comic',                 'graphic novel'),
+        ('manga',                 'graphic novel'),
+        ('biography',             'memoir'),
+        ('autobiography',         'memoir'),
+        ('memoir',                'memoir'),
+        ('nonfiction',            'non-fiction'),
+        ('non-fiction',           'non-fiction'),
+        ('history',               'history'),
+        ('poetry',                'poetry'),
+        ('short stories',         'short stories'),
+        ('humor',                 'humor'),
+        ('satire',                'humor'),
+    ]
+
+    # ── Title keyword hints (fallback when author is not in AUTHOR_GENRES) ──
+    # Intentionally broader and allows multi-genre matches.
+    GENRE_HINTS: Dict[str, List[str]] = {
+        'fantasy':          ['magic', 'dragon', 'throne', 'kingdom', 'sword', 'quest',
+                             'wizard', 'elf', 'sorcerer', 'mage', 'ring', 'dwarv',
+                             'fae', 'faerie', 'witch', 'warlock', 'dungeon', 'spell',
+                             'enchant', 'mythic', 'legend', 'rune', 'orcs', 'goblin',
+                             'elven', 'heroic', 'realm', 'prophecy'],
+        'science fiction':  ['space', 'star ', 'galaxy', 'robot', 'android', 'mars',
+                             'alien', 'future', 'cyber', 'warp', 'laser', 'quantum',
+                             'clone', 'mutation', 'colony ', 'station ', 'empire ',
+                             'planet', 'nebula', 'void ', 'starship', 'terraform'],
+        'mystery':          ['murder', 'detective', 'crime', 'clue', 'mystery',
+                             'investigation', 'case ', 'suspect', 'sleuth'],
+        'thriller':         ['spy', 'assassin', 'conspiracy', 'chase', 'danger',
+                             'hunt ', 'secret ', 'covert', 'tactical', 'heist'],
+        'horror':           ['ghost', 'haunted', 'nightmare', 'dead ', 'blood',
+                             'fear ', 'terror', 'supernatural', 'demon', 'cursed',
+                             'crypt', 'macabre', 'undead'],
+        'historical fiction':['war', 'empire', 'century', 'ancient', 'medieval',
+                              'colonial', 'victorian', 'tudor', 'roman', 'revolution',
+                              'civil war', 'world war'],
+        'literary fiction': ['station', 'atocha', 'stoner', 'ruin', 'martyr'],
+        'dystopian':        ['dystopia', 'rebellion', 'surveillance', 'regime',
+                             'totalitarian', 'resistance '],
+        'young adult':      ['chosen one', 'academy ', 'high school', 'coming of age'],
+        'non-fiction':      ['biography', 'autobiography', 'memoir', 'history of',
+                             'guide to', 'how to', 'the making of', 'the story of'],
+        'humor':            ['absurd', 'comedy', 'funny', 'satire', 'ridiculous'],
+        'magical realism':  ['miraculous', 'surreal', 'dream ', 'memory ', 'illusion'],
+    }
+
+    def __init__(self, books: List[Dict], all_books: Optional[List[Dict]] = None,
+                 favorite_authors: Optional[List[str]] = None):
         """
         Args:
             books: List of read books (dicts with title, author, status, read_date, genre, etc.)
             all_books: Complete library including to-read and currently-reading
+            favorite_authors: User-selected list of up to 3 favourite author names
         """
         self.read_books = [b for b in books if b.get('status') == 'read']
         self.all_books = all_books or books
         self.to_read = [b for b in self.all_books if b.get('status') == 'to-read']
         self.currently_reading = [b for b in self.all_books if b.get('status') == 'currently-reading']
+        self.favorite_authors: List[str] = favorite_authors or []
         self._profile: Optional[Dict] = None
+        # {book_id: genre_str} — populated by _prefetch_ol_genres during build()
+        self._ol_cache: Dict[int, str] = {}
 
     def build(self) -> Dict:
         """Build the full reader profile. Returns a dict with all analysis dimensions."""
         if self._profile:
             return self._profile
+
+        # Pre-populate OL genre cache for books that have no saved genre.
+        # Must happen before any analysis method runs.
+        self._prefetch_ol_genres(max_requests=20)
 
         self._profile = {
             'summary': self._build_summary(),
@@ -62,49 +284,71 @@ class ReaderProfile:
         return self._profile
 
     def get_prompt_context(self) -> str:
-        """Return a formatted string suitable for injecting into an LLM prompt."""
-        profile = self.build()
+        """Return a formatted string suitable for injecting into an LLM prompt.
 
+        Sections are ordered by signal strength:
+          1. Recent reads (most important — current taste)
+          2. Genre preference (all-time)
+          3. All-time favourite authors (background context only)
+          4. Reading pace
+        The 'active series' block is intentionally omitted from chat context
+        because a high all-time multi-book count (e.g. Robin Hobb) misleads the
+        LLM into treating historical binge-reads as current interests.
+        """
+        profile = self.build()
         sections = []
 
-        # Summary
-        sections.append(f"## Reader Profile Summary\n{profile['summary']}")
+        # ── 1. RECENCY — listed first so the LLM anchors on current taste ──
+        recency = profile['recency_profile']
+        entries = recency.get('recent_entries', [])
+        if entries:
+            entry_lines = []
+            for e in entries:
+                date_str = f" (read {e['read_date']})" if e['read_date'] else ''
+                entry_lines.append(f"  {len(entry_lines)+1}. {e['title']} — {e['author']}{date_str}")
+            genre_str = ', '.join(recency.get('recent_genres', [])[:5])
+            recent_section = (
+                "## Most Recently Read (use these as the PRIMARY taste signal)\n"
+                + "\n".join(entry_lines)
+            )
+            if genre_str:
+                recent_section += f"\nCurrent genre lean: {genre_str}"
+            sections.append(recent_section)
+        elif recency.get('recent_books'):
+            # Fallback for older data without entries
+            title_lines = "\n".join([f"  - {t}" for t in recency['recent_books'][:10]])
+            sections.append(f"## Most Recently Read (PRIMARY taste signal)\n{title_lines}")
 
-        # Genre distribution
+        # ── 2. Summary ──
+        sections.append(f"## Reader Summary\n{profile['summary']}")
+
+        # ── 3. Genre distribution (all-time, secondary context) ──
         genres = profile['genre_distribution']
         if genres.get('distribution'):
-            genre_lines = [f"  - {g}: {pct:.0f}% ({c} books)" for g, c, pct in genres['distribution'][:8]]
-            sections.append(f"## Genre Preferences\n" + "\n".join(genre_lines))
-            if genres.get('top_genre'):
-                sections.append(f"Primary genre: {genres['top_genre']}")
+            genre_lines = [f"  - {g}: {pct:.0f}% ({c} books)" for g, c, pct in genres['distribution'][:6]]
+            sections.append("## All-Time Genre Preferences (secondary context)\n" + "\n".join(genre_lines))
 
-        # Author loyalty
+        # ── 4. Favourite authors ─────────────────────────────────────────────
         authors = profile['author_analysis']
-        if authors.get('favorite_authors'):
-            fav_lines = [f"  - {a} ({c} books)" for a, c in authors['favorite_authors'][:5]]
-            sections.append(f"## Favorite Authors\n" + "\n".join(fav_lines))
-        if authors.get('one_hit_authors_pct') is not None:
-            sections.append(f"Discovery tendency: {authors['one_hit_authors_pct']:.0f}% of authors read only once")
+        user_favs = authors.get('user_favorites', [])
+        if user_favs:
+            # User-selected — most reliable signal
+            fav_lines = [f"  - {a}" for a in user_favs]
+            sections.append(
+                "## Favourite Authors (user-selected)\n" + "\n".join(fav_lines)
+            )
+        elif authors.get('favorite_authors'):
+            # Fallback: computed by volume, clearly labelled
+            fav_lines = [f"  - {a} ({c} books total)" for a, c in authors['favorite_authors'][:5]]
+            sections.append(
+                "## All-Time Favourite Authors (historical — high count ≠ currently reading)\n"
+                + "\n".join(fav_lines)
+            )
 
-        # Recency
-        recency = profile['recency_profile']
-        if recency.get('recent_authors'):
-            sections.append(f"## Recent Interests (last 5 books)\nAuthors: {', '.join(recency['recent_authors'][:5])}")
-        if recency.get('recent_genres'):
-            sections.append(f"Recent genres: {', '.join(recency['recent_genres'][:5])}")
-
-        # Reading pace
+        # ── 5. Reading pace ──
         pace = profile['reading_pace']
         if pace.get('description'):
             sections.append(f"## Reading Pace\n{pace['description']}")
-
-        # Series preference
-        series = profile['series_preference']
-        if series.get('description'):
-            sections.append(f"## Series vs Standalone\n{series['description']}")
-        if series.get('active_series'):
-            active = [f"  - {s['author']}: {', '.join(s['titles'][:4])}" for s in series['active_series'][:3]]
-            sections.append(f"Active series (likely reading):\n" + "\n".join(active))
 
         return "\n\n".join(sections)
 
@@ -126,37 +370,38 @@ class ReaderProfile:
         return " ".join(lines)
 
     def _analyze_genres(self) -> Dict:
-        """Analyze genre distribution from explicit genre fields + title-based inference."""
+        """Analyze genre distribution.
+
+        Priority per book: explicit DB field > AUTHOR_GENRES map > title keywords.
+        A book can contribute to *multiple* genre buckets.
+        """
         genre_counter: Counter = Counter()
 
         for book in self.read_books:
-            genre_raw = book.get('genre') or ''
-            genre = genre_raw.strip().lower()
-            if genre:
-                # Normalize multi-genre entries
-                for g in genre.replace('/', ',').split(','):
-                    g = g.strip()
-                    if g:
-                        genre_counter[g] += 1
-            else:
-                # Infer genre from title
-                title = book.get('title') or ''
-                inferred = self._infer_genre(title)
-                if inferred:
-                    genre_counter[inferred] += 1
+            seen: set = set()
+            for g in self._get_genres_for_book(book):
+                if g not in seen:
+                    seen.add(g)
+                    genre_counter[g] += 1
 
         total = sum(genre_counter.values()) or 1
-        distribution = [(genre, count, (count / total) * 100) 
-                        for genre, count in genre_counter.most_common()]
+        distribution = [
+            (genre, count, (count / total) * 100)
+            for genre, count in genre_counter.most_common()
+        ]
 
         return {
             'distribution': distribution,
             'top_genre': distribution[0][0] if distribution else None,
-            'diversity_score': len(genre_counter) / max(total, 1),  # Higher = more diverse reader
+            'diversity_score': len(genre_counter) / max(total, 1),
         }
 
     def _analyze_authors(self) -> Dict:
-        """Analyze author reading patterns — loyalty, favorites, discovery tendency."""
+        """Analyze author reading patterns.
+
+        `user_favorites` mirrors `self.favorite_authors` so callers can access
+        user-selected favourites from the built profile dict.
+        """
         author_counter: Counter = Counter()
         author_books: Dict[str, List[str]] = defaultdict(list)
 
@@ -170,14 +415,18 @@ class ReaderProfile:
         total_authors = len(author_counter)
         one_hit = sum(1 for c in author_counter.values() if c == 1)
 
-        favorite_authors = [(a, c) for a, c in author_counter.most_common(10) if c >= 2]
+        # Computed top authors by volume (for fallback display only)
+        computed_top = [(a, c) for a, c in author_counter.most_common(10) if c >= 2]
 
         return {
             'total_unique_authors': total_authors,
-            'favorite_authors': favorite_authors,
+            'favorite_authors': computed_top,       # kept for backward compat
+            'user_favorites': self.favorite_authors, # user-selected (may be [])
             'author_books': dict(author_books),
             'one_hit_authors_pct': (one_hit / total_authors * 100) if total_authors else 0,
-            'loyalty_score': 1 - (one_hit / total_authors) if total_authors else 0,  # Higher = more loyal
+            'loyalty_score': 1 - (one_hit / total_authors) if total_authors else 0,
+            # Sorted list of all authors read (for the UI picker)
+            'all_read_authors': sorted(author_counter.keys()),
         }
 
     def _analyze_pace(self) -> Dict:
@@ -215,31 +464,36 @@ class ReaderProfile:
 
     def _analyze_recency(self) -> Dict:
         """Analyze what the reader is into RIGHT NOW based on recent reads."""
-        # Sort by read_date descending, fall back to id descending
-        sorted_books = sorted(
-            self.read_books,
-            key=lambda b: b.get('read_date', '') or '',
-            reverse=True
-        )
+        # IMPORTANT: M/D/YYYY strings do NOT sort correctly lexicographically.
+        # Always parse dates before comparing; fall back to id for undated books.
+        def _recency_key(b: Dict):
+            dt = self._parse_date(b.get('read_date') or '') \
+                 or self._parse_date(b.get('date_added') or '')
+            return (dt or datetime.min, b.get('id', 0))
 
-        recent = sorted_books[:5]
+        sorted_books = sorted(self.read_books, key=_recency_key, reverse=True)
+
+        recent = sorted_books[:10]
         recent_authors = list(dict.fromkeys((b.get('author') or '') for b in recent))
-        recent_genres = []
+        recent_genres: List[str] = []
         for b in recent:
-            g_raw = b.get('genre') or ''
-            g = g_raw.strip()
-            if g and g not in recent_genres:
-                recent_genres.append(g)
-            elif not g:
-                title = b.get('title') or ''
-                inferred = self._infer_genre(title)
-                if inferred and inferred not in recent_genres:
-                    recent_genres.append(inferred)
+            for g in self._get_genres_for_book(b):
+                if g not in recent_genres:
+                    recent_genres.append(g)
 
-        recent_titles = [(b.get('title') or 'Untitled') for b in recent]
+        # Rich recent-book entries: title, author, and read_date for full transparency
+        recent_entries = []
+        for b in recent:
+            entry = {
+                'title': b.get('title') or 'Untitled',
+                'author': b.get('author') or 'Unknown',
+                'read_date': b.get('read_date') or '',
+            }
+            recent_entries.append(entry)
 
         return {
-            'recent_books': recent_titles,
+            'recent_books': [e['title'] for e in recent_entries],  # kept for compat
+            'recent_entries': recent_entries,
             'recent_authors': recent_authors,
             'recent_genres': recent_genres,
         }
@@ -291,8 +545,111 @@ class ReaderProfile:
 
     # ─── Helpers ─────────────────────────────────────────────────────────
 
+    def _normalize_ol_subjects(self, subjects: List[str]) -> str:
+        """Map a list of Open Library subject strings to our genre vocabulary."""
+        seen: set = set()
+        genres: List[str] = []
+        for subj in subjects:
+            sl = subj.lower()
+            for frag, genre in self.OL_SUBJECT_MAP:
+                if frag in sl and genre not in seen:
+                    seen.add(genre)
+                    genres.append(genre)
+            if len(genres) >= 4:
+                break
+        return ', '.join(genres)
+
+    def _fetch_ol_genre(self, title: str, author: str) -> str:
+        """Query Open Library for a book's genre. Returns normalized genre string or ''."""
+        try:
+            query = urllib.parse.quote(f"{title} {author}")
+            url = f"https://openlibrary.org/search.json?q={query}&limit=1&fields=subject"
+            req = urllib.request.Request(url, headers={'User-Agent': 'BookSuggester/1.0'})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                data = _json.loads(resp.read().decode())
+            docs = data.get('docs') or []
+            if docs:
+                return self._normalize_ol_subjects(docs[0].get('subject') or [])
+        except Exception:
+            pass
+        return ''
+
+    def _prefetch_ol_genres(self, max_requests: int = 20) -> None:
+        """Fetch genres from Open Library for read books that have no saved genre.
+
+        Bounded to `max_requests` per build (most recently read books are prioritised)
+        so the profile endpoint stays responsive even with large libraries.
+        Results are stored in `self._ol_cache` for use by `_get_genres_for_book`.
+        """
+        books_needing_genre = [
+            b for b in self.read_books
+            if not (b.get('genre') or '').strip()
+            and b.get('title')
+        ]
+        # Sort by recency so we enrich the most relevant books first
+        def _sort_key(b):
+            rd = b.get('read_date') or b.get('date_added') or ''
+            if rd:
+                parsed = self._parse_date(rd)
+                if parsed:
+                    return parsed
+            return datetime.min
+
+        books_needing_genre.sort(key=_sort_key, reverse=True)
+
+        for book in books_needing_genre[:max_requests]:
+            book_id = book.get('id')
+            if book_id is None:
+                continue
+            genre = self._fetch_ol_genre(
+                book.get('title') or '', book.get('author') or ''
+            )
+            self._ol_cache[book_id] = genre
+
+    def get_ol_enriched_genres(self) -> Dict[int, str]:
+        """Return {book_id: genre_str} for every book successfully enriched via Open Library.
+
+        Call after `build()`. The app layer can use this to persist genres to the DB
+        so future profile builds skip the network requests.
+        """
+        return {bid: g for bid, g in self._ol_cache.items() if g}
+
+    def _get_genres_for_book(self, book: Dict) -> List[str]:
+        """Return a deduplicated list of genre tags for a single book.
+        Priority: explicit DB genre field > Open Library API > AUTHOR_GENRES map > title keywords.
+        """
+        import re as _re
+
+        # 1. Explicit DB genre field (may have been saved by a previous OL enrichment)
+        genre_raw = (book.get('genre') or '').strip().lower()
+        if genre_raw:
+            genres = [g.strip() for g in genre_raw.replace('/', ',').split(',') if g.strip()]
+            if genres:
+                return list(dict.fromkeys(genres))
+
+        # 2. Open Library (pre-fetched into _ol_cache by _prefetch_ol_genres)
+        book_id = book.get('id')
+        if book_id is not None and book_id in self._ol_cache:
+            ol_genre = self._ol_cache[book_id]
+            if ol_genre:
+                return [g.strip() for g in ol_genre.split(',') if g.strip()]
+
+        # 3. Author map (fast offline fallback)
+        author_norm = _re.sub(r'[^a-z0-9 ]', '', (book.get('author') or '').lower()).strip()
+        author_genres = self.AUTHOR_GENRES.get(author_norm, [])
+        if author_genres:
+            return list(dict.fromkeys(author_genres))
+
+        # 4. Title keyword fallback (multi-genre)
+        title_lower = (book.get('title') or '').lower()
+        matched: List[str] = []
+        for genre, keywords in self.GENRE_HINTS.items():
+            if any(kw in title_lower for kw in keywords):
+                matched.append(genre)
+        return list(dict.fromkeys(matched))
+
     def _infer_genre(self, title: str) -> Optional[str]:
-        """Lightweight genre inference from title keywords."""
+        """Legacy single-genre title inference (returns first match only)."""
         title_lower = title.lower()
         for genre, keywords in self.GENRE_HINTS.items():
             if any(kw in title_lower for kw in keywords):
