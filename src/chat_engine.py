@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from config import OPENAI_API_KEY, OPENAI_MODEL, GPT_PREFERRED_MODELS
 from reader_profile import ReaderProfile
+from prompt_loader import load_prompt
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -106,9 +107,12 @@ class ConversationState(TypedDict):
 
 # ═══════════════════════════════════════════════════════════════════════
 #  SYSTEM PROMPTS
+#  Prompts are loaded from prompts/*.txt via prompt_loader.
+#  Edit the .txt files to tweak behaviour without touching Python code.
+#  The _DEFAULT_* strings below are hardcoded fallbacks only.
 # ═══════════════════════════════════════════════════════════════════════
 
-INTENT_CLASSIFIER_PROMPT = """You are an intent classifier for a book recommendation chatbot. 
+_DEFAULT_INTENT_CLASSIFIER_PROMPT = """You are an intent classifier for a book recommendation chatbot. 
 Classify the user's message into exactly ONE of these intents:
 
 - "recommendation": User wants book recommendations/suggestions (e.g., "suggest me a book", "what should I read next", "I want something like...", "give me suggestions", "I'm looking for a thriller")
@@ -124,7 +128,7 @@ User message: {message}
 Recent conversation context:
 {context}"""
 
-GUARDRAILS_PROMPT = """You are a safety and compliance checker for a book recommendation chatbot.
+_DEFAULT_GUARDRAILS_PROMPT = """You are a safety and compliance checker for a book recommendation chatbot.
 
 Check the user's message for:
 1. Harmful, hateful, or dangerous content
@@ -137,7 +141,7 @@ If the message is UNSAFE, respond with: UNSAFE: [brief reason]
 
 User message: {message}"""
 
-CONTEXT_GATHERER_PROMPT = """You are a friendly, knowledgeable book recommendation assistant having a conversation.
+_DEFAULT_CONTEXT_GATHERER_PROMPT = """You are a friendly, knowledgeable book recommendation assistant having a conversation.
 Your goal is to understand what the user wants to read next by asking smart follow-up questions.
 
 ## Your Reader's Profile
@@ -166,7 +170,7 @@ Your goal is to understand what the user wants to read next by asking smart foll
 
 User's latest message: {current_input}"""
 
-RECOMMENDATION_PROMPT = """You are an expert book recommender with encyclopedic knowledge of literature.
+_DEFAULT_RECOMMENDATION_PROMPT = """You are an expert book recommender with encyclopedic knowledge of literature.
 You're having a personal conversation with a reader and know their tastes deeply.
 
 ## Reader's Profile
@@ -213,7 +217,7 @@ Write a brief conversational intro (1-2 sentences), then list suggestions:
 
 End with a brief conversational outro asking if any interest them or if they want different suggestions."""
 
-LIBRARY_QUERY_PROMPT = """You are a helpful book library assistant. Answer the user's question about their reading library.
+_DEFAULT_LIBRARY_QUERY_PROMPT = """You are a helpful book library assistant. Answer the user's question about their reading library.
 The books list below is sorted MOST RECENT FIRST by read_date — treat rank #1 as the latest read.
 NEVER reorder or re-rank the list in your head; trust the ordering given.
 
@@ -226,20 +230,22 @@ NEVER reorder or re-rank the list in your head; trust the ordering given.
 ## Reader Profile
 {reader_profile}
 
-## Read Books in Chronological Order (rank 1 = most recently read)
+{direct_matches}
+## All Read Books in Chronological Order (rank 1 = most recently read)
 {books_list}
 
 ## User's Question
 {question}
 
 ## Guidelines
+- If "Direct Lookup Results" appear above, treat those as authoritative facts and answer directly from them
 - Answer accurately based on the data provided
 - Be conversational and friendly
 - If they ask about patterns, use the reader profile
 - Keep responses concise but informative
 - You can mention interesting patterns you notice"""
 
-CASUAL_CHAT_PROMPT = """You are a friendly, knowledgeable book enthusiast having a casual conversation about books.
+_DEFAULT_CASUAL_CHAT_PROMPT = """You are a friendly, knowledgeable book enthusiast having a casual conversation about books.
 
 ## Reader's Profile (for context)
 {reader_profile}
@@ -257,7 +263,7 @@ CASUAL_CHAT_PROMPT = """You are a friendly, knowledgeable book enthusiast having
 
 User: {current_input}"""
 
-OFF_TOPIC_RESPONSE = """I appreciate the question, but I'm your book recommendation assistant! 🤓📚
+_DEFAULT_OFF_TOPIC_RESPONSE = """I appreciate the question, but I'm your book recommendation assistant! 🤓📚
 
 I can help you with:
 - 📖 **Book recommendations** tailored to your taste
@@ -266,6 +272,15 @@ I can help you with:
 - 🎯 **Mood-based picks** — tell me your mood, I'll find the perfect book
 
 What would you like to talk about?"""
+
+# ── Load from prompts/ directory (file overrides default if present) ─────────
+INTENT_CLASSIFIER_PROMPT  = load_prompt('chat_intent_classifier.txt', _DEFAULT_INTENT_CLASSIFIER_PROMPT)
+GUARDRAILS_PROMPT         = load_prompt('chat_guardrails.txt',        _DEFAULT_GUARDRAILS_PROMPT)
+CONTEXT_GATHERER_PROMPT   = load_prompt('chat_context_gatherer.txt',  _DEFAULT_CONTEXT_GATHERER_PROMPT)
+RECOMMENDATION_PROMPT     = load_prompt('chat_recommendation.txt',    _DEFAULT_RECOMMENDATION_PROMPT)
+LIBRARY_QUERY_PROMPT      = load_prompt('chat_library_query.txt',     _DEFAULT_LIBRARY_QUERY_PROMPT)
+CASUAL_CHAT_PROMPT        = load_prompt('chat_casual.txt',            _DEFAULT_CASUAL_CHAT_PROMPT)
+OFF_TOPIC_RESPONSE        = load_prompt('chat_off_topic.txt',         _DEFAULT_OFF_TOPIC_RESPONSE)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -533,12 +548,39 @@ class BookChatEngine:
         # Sort by properly parsed date — M/D/YYYY strings do NOT sort lexicographically.
         sorted_books = sorted(read_books, key=_book_recency_key, reverse=True)
 
-        # Numbered list so the LLM cannot accidentally re-rank entries.
+        # --- In-memory keyword pre-filter -----------------------------------------
+        # Searches title/author across ALL books (not just read ones) so questions
+        # like "is X on my to-read list?" or "have I read X?" get a definitive
+        # answer even in a 500-book library.  Results are surfaced as a clearly
+        # labelled "Direct Lookup" block that the LLM is instructed to treat as
+        # authoritative, avoiding the needle-in-a-haystack problem.
+        direct_matches = self._find_book_matches(state['current_input'], all_books)
+        if direct_matches:
+            match_lines = []
+            for b in direct_matches:
+                status = b.get('status', 'unknown')
+                date_part = f", read {b['read_date']}" if b.get('read_date') else ''
+                match_lines.append(
+                    f"  - {b.get('title', '')} by {b.get('author', '')} [status: {status}{date_part}]"
+                )
+            direct_matches_section = (
+                "## Direct Lookup Results (authoritative — answer specific questions from here)\n"
+                + "\n".join(match_lines)
+                + "\n\n"
+            )
+        else:
+            direct_matches_section = ""
+
+        # --- Full chronological list (no cap) -------------------------------------
+        # Never cap this list — a missing entry means the LLM can wrongly say
+        # "I haven't seen that book" for something outside the window.
+        # Compact format (~70 chars/line) keeps token cost reasonable even at scale
+        # (500 books ≈ 7k tokens).
         book_lines = []
-        for rank, b in enumerate(sorted_books[:60], 1):
+        for rank, b in enumerate(sorted_books, 1):
             date_part = f" — read {b['read_date']}" if b.get('read_date') else ' — (no date recorded)'
             book_lines.append(
-                f"{rank:2d}. {b.get('title', '')} by {b.get('author', '')}{date_part}"
+                f"{rank:3d}. {b.get('title', '')} by {b.get('author', '')}{date_part}"
             )
         books_list = "\n".join(book_lines)
 
@@ -548,6 +590,7 @@ class BookChatEngine:
             to_read=len([b for b in all_books if b.get('status') == 'to-read']),
             currently_reading=len([b for b in all_books if b.get('status') == 'currently-reading']),
             reader_profile=state.get('reader_profile', ''),
+            direct_matches=direct_matches_section,
             books_list=books_list or "No books yet",
             question=state['current_input'],
         )
@@ -610,6 +653,57 @@ class BookChatEngine:
         return "recommend"
 
     # ─── Helper Methods ──────────────────────────────────────────────────
+
+    # Words that carry no book-identity signal and should be ignored when
+    # doing keyword matching against the user's question.
+    _QUERY_STOP_WORDS = {
+        'a', 'an', 'the', 'is', 'was', 'were', 'be', 'been', 'have', 'has',
+        'had', 'i', 'my', 'do', 'did', 'does', 'ever', 'read', 'reading',
+        'book', 'books', 'by', 'of', 'in', 'on', 'and', 'or', 'any', 'what',
+        'when', 'how', 'many', 'last', 'first', 'show', 'list', 'tell', 'me',
+        'about', 'it', 'its', 'that', 'this', 'which', 'who', 'where', 'to',
+        'from', 'with', 'at', 'for', 'are', 'not', 'no', 'yes',
+    }
+
+    def _find_book_matches(self, question: str, all_books: List[Dict]) -> List[Dict]:
+        """In-memory keyword pre-filter: find books whose title or author words
+        appear in the user's question.
+
+        This gives the LLM a definitive "Direct Lookup Results" block so that
+        specific-book queries ("have I read X?", "is Y on my list?") are answered
+        from an authoritative match rather than from searching a long ranked list.
+
+        Returns up to 10 books ordered by match score (highest first).
+        """
+        # Tokenise the question, drop stop words and short tokens
+        raw_tokens = re.sub(r"[^\w\s]", "", question.lower()).split()
+        query_words = {w for w in raw_tokens if w not in self._QUERY_STOP_WORDS and len(w) >= 3}
+
+        if not query_words:
+            return []
+
+        scored: List[tuple] = []
+        for book in all_books:
+            title  = (book.get('title')  or '').lower()
+            author = (book.get('author') or '').lower()
+            combined = f"{title} {author}"
+
+            # Count how many query words appear in the combined string
+            hits = sum(1 for w in query_words if w in combined)
+
+            # Accept matches that hit the title directly, or the author field
+            # (for "what Sanderson books do I have?" style queries).
+            # Author-only matches need 2+ distinct word hits to reduce false
+            # positives from single common-name tokens.
+            title_hit  = any(w in title  for w in query_words)
+            author_hit = sum(1 for w in query_words if w in author) >= 1
+
+            if hits >= 1 and (title_hit or author_hit):
+                scored.append((hits, book))
+
+        # Sort by score descending, return up to 10
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return [b for _, b in scored[:10]]
 
     def _format_conversation(self, messages: List[Dict]) -> str:
         """Format conversation history for prompts."""

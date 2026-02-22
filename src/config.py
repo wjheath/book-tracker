@@ -24,12 +24,12 @@ if not OPENAI_API_KEY:
 
 DEBUG = True  # Set to False in production
 
-# Prompt configuration
-# You can customize the book suggestion prompt by editing CUSTOM_PROMPT_TEMPLATE below
-# or by creating a file at prompts/book_suggestion.txt
-CUSTOM_PROMPT_TEMPLATE = os.getenv('CUSTOM_PROMPT_TEMPLATE', None)
+# ── Prompt configuration ──────────────────────────────────────────────────────
+# Prompts are managed via prompt_loader.  The DEFAULT_PROMPT_TEMPLATE below is
+# the hardcoded fallback; prompts/book_suggestion.txt overrides it at runtime.
+# You can also override via the CUSTOM_PROMPT_TEMPLATE environment variable.
 
-# Default prompt template (used if no custom prompt is found)
+# Minimal hardcoded fallback (the real prompt lives in prompts/book_suggestion.txt)
 DEFAULT_PROMPT_TEMPLATE = """You are an expert book recommender. Based on the user's reading history:
 
 {books_list}
@@ -41,14 +41,10 @@ Suggest {num_suggestions} books they would enjoy. For each:
 Return as a numbered list: "1. **Title** by Author - reason"
 """
 
-# Load custom prompt from file if it exists
-PROMPTS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompts')
-CUSTOM_PROMPT_FILE = os.path.join(PROMPTS_DIR, 'book_suggestion.txt')
+# Environment-variable override takes top priority (useful for Docker / CI)
+CUSTOM_PROMPT_TEMPLATE = os.getenv('CUSTOM_PROMPT_TEMPLATE', None)
 
-if os.path.exists(CUSTOM_PROMPT_FILE):
-    try:
-        with open(CUSTOM_PROMPT_FILE, 'r', encoding='utf-8') as f:
-            CUSTOM_PROMPT_TEMPLATE = f.read().strip()
-        print(f"Loaded custom prompt from {CUSTOM_PROMPT_FILE}")
-    except Exception as e:
-        print(f"Warning: Could not load custom prompt: {e}")
+# If no env override, load from prompts/book_suggestion.txt via prompt_loader
+if not CUSTOM_PROMPT_TEMPLATE:
+    from prompt_loader import load_prompt as _load_prompt
+    CUSTOM_PROMPT_TEMPLATE = _load_prompt('book_suggestion.txt', DEFAULT_PROMPT_TEMPLATE)

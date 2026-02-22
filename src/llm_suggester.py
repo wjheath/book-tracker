@@ -23,6 +23,14 @@ from config import (
     OPENAI_API_KEY, OPENAI_MODEL, OPENAI_REASONING, GPT_PREFERRED_MODELS,
     CUSTOM_PROMPT_TEMPLATE, DEFAULT_PROMPT_TEMPLATE
 )
+from reader_profile import ReaderProfile
+
+# Above this many read books, switch to profile-based context to avoid
+# information dilution — raw history is trimmed, ReaderProfile provides
+# a richer distilled signal instead of _analyze_reading_patterns.
+_LARGE_LIBRARY_THRESHOLD = 50
+# Raw-history cap for large libraries (recent taste signal only)
+_LARGE_LIBRARY_RAW_CAP = 25
 
 
 class LLM_Suggester:
@@ -152,11 +160,17 @@ class LLM_Suggester:
             return 0
 
         sorted_history = sorted(reading_history, key=_parse_date_sortkey, reverse=True)
-        
+
+        # For large libraries, cap the raw history to avoid information dilution.
+        # The ReaderProfile (injected below) covers all-time patterns; the raw
+        # list should only anchor the LLM on current/recent taste.
+        large_library = len(sorted_history) > _LARGE_LIBRARY_THRESHOLD
+        raw_cap = _LARGE_LIBRARY_RAW_CAP if large_library else 50
+
         # Build detailed books list with recency markers
         books_list = ""
         recent_count = 0
-        for i, b in enumerate(sorted_history[:50]):
+        for i, b in enumerate(sorted_history[:raw_cap]):
             title = b.get('title', 'Unknown')
             author = b.get('author', 'Unknown')
             read_date = b.get('read_date', '')
@@ -178,14 +192,27 @@ class LLM_Suggester:
             line += recency_marker
             books_list += line + "\n"
         
-        # Analyze reading patterns
-        reading_patterns = self._analyze_reading_patterns(sorted_history)
+        # For large libraries, use the structured ReaderProfile as the pattern
+        # signal — it distils genre, recency, pace, and author loyalty from the
+        # *entire* history without flooding the prompt with raw book entries.
+        # For small libraries, the lightweight local analysis is sufficient.
+        if large_library:
+            try:
+                _profile = ReaderProfile(reading_history, all_books or [])
+                reading_patterns = _profile.get_prompt_context()
+            except Exception as _pe:
+                print(f"Warning: ReaderProfile failed, falling back to basic patterns: {_pe}")
+                reading_patterns = self._analyze_reading_patterns(sorted_history)
+        else:
+            reading_patterns = self._analyze_reading_patterns(sorted_history)
         
         # Extract to-read books
+        # NOTE: No cap — these are excluded from suggestions, so every entry must
+        # be present or the LLM may suggest something the user already knows about.
         to_read_list = ""
         if all_books:
             to_read_books = [b for b in all_books if b.get('status') == 'to-read']
-            for b in to_read_books[:30]:
+            for b in to_read_books:
                 title = b.get('title', 'Unknown')
                 author = b.get('author', 'Unknown')
                 to_read_list += f"- {title} by {author}\n"
@@ -198,11 +225,16 @@ class LLM_Suggester:
                 author = b.get('author', 'Unknown')
                 rejected_list += f"- {title} by {author}\n"
         
-        # All library titles
+        # All library titles — used as the primary exclusion list sent to the LLM.
+        # NEVER cap this: a missing entry means the LLM may suggest a book the user
+        # already owns.  Title-only lines are compact (~40 chars each), so even a
+        # 500-book library only adds ~5k tokens.
         all_titles = ""
         if all_books:
-            titles = [b.get('title', 'Unknown') for b in all_books]
-            all_titles = "\n".join([f"- {t}" for t in titles[:100]])
+            all_titles = "\n".join(
+                f"- {b.get('title', 'Unknown')} by {b.get('author', 'Unknown')}"
+                for b in all_books
+            )
         
         # Build context
         context = {
