@@ -361,6 +361,28 @@
         </footer>
     </div>
 
+    <!-- Cover Picker Modal -->
+    <div class="cover-picker-overlay" id="coverPickerModal" onclick="if(event.target===this)closeCoverPicker()">
+        <div class="cover-picker-panel" style="position:relative;">
+            <button class="cover-picker-close" onclick="closeCoverPicker()" title="Close">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+            <div class="cover-picker-header">
+                <h3>Choose a Cover</h3>
+                <p id="coverPickerTitle"></p>
+                <div class="cover-picker-search-row">
+                    <input type="text" id="coverPickerSearch" placeholder="Search for a different edition..." onkeydown="if(event.key==='Enter')coverPickerSearchAgain()">
+                    <button onclick="coverPickerSearchAgain()">Search</button>
+                </div>
+            </div>
+            <div class="cover-picker-body">
+                <div class="cover-picker-grid" id="coverPickerGrid"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="/app.js"></script>
 </body>
 </html>

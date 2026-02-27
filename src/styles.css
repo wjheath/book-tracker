@@ -509,6 +509,43 @@ button.secondary:hover {
 .status-currently-reading { background: var(--info-light); color: var(--info); }
 
 /* Book covers */
+.cover-wrapper {
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    border-radius: var(--radius-sm);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cover-wrapper:hover {
+    transform: scale(1.08);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+}
+
+.cover-wrapper:hover .cover-edit-badge {
+    opacity: 1;
+}
+
+.cover-edit-badge {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 18px;
+    height: 18px;
+    background: var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.cover-edit-badge svg {
+    stroke: var(--text-inverse);
+}
+
 .book-cover {
     width: 48px;
     height: 72px;
@@ -533,6 +570,188 @@ button.secondary:hover {
     font-weight: 700;
     font-family: var(--font-heading);
     letter-spacing: 0.5px;
+}
+
+/* Cover Picker Modal */
+.cover-picker-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    padding: 20px;
+}
+
+.cover-picker-overlay.open {
+    opacity: 1;
+    visibility: visible;
+}
+
+.cover-picker-panel {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 720px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(20px);
+    transition: transform 0.2s ease;
+}
+
+.cover-picker-overlay.open .cover-picker-panel {
+    transform: translateY(0);
+}
+
+.cover-picker-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.cover-picker-header h3 {
+    margin: 0 0 4px;
+    font-family: var(--font-heading);
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.cover-picker-header p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.cover-picker-search-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.cover-picker-search-row input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    background: var(--bg-body);
+    color: var(--text-primary);
+}
+
+.cover-picker-search-row button {
+    padding: 8px 16px;
+    font-size: 13px;
+    width: auto;
+}
+
+.cover-picker-body {
+    padding: 16px 24px 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.cover-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 14px;
+}
+
+.cover-option {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 8px;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    background: var(--bg-body);
+    text-align: center;
+}
+
+.cover-option:hover {
+    border-color: var(--accent);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+}
+
+.cover-option img {
+    width: 100%;
+    max-width: 110px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    margin: 0 auto 8px;
+    display: block;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+}
+
+.cover-option-info {
+    font-size: 11px;
+    line-height: 1.3;
+}
+
+.cover-option-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cover-option-author {
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cover-option-year {
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
+.cover-picker-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    gap: 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+    grid-column: 1 / -1;
+}
+
+.cover-picker-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 14px;
+    grid-column: 1 / -1;
+}
+
+.cover-picker-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 50%;
+    transition: background 0.15s ease;
+    width: auto;
+    min-width: unset;
+}
+
+.cover-picker-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
 }
 
 /* Book actions */

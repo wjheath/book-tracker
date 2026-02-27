@@ -321,10 +321,13 @@ function renderBooks() {
                 return `
                 <div class="book-item" id="book-item-${book.id}">
                     <div class="book-content">
-                        ${book.cover_url
-                            ? `<img src="${escapeHtml(book.cover_url)}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>${initials}</div>'">`
-                            : `<div class="book-cover-placeholder" data-book-id="${book.id}" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author)}">${initials}</div>`
-                        }
+                        <div class="cover-wrapper" onclick="openCoverPicker(${book.id})" title="Click to change cover">
+                            ${book.cover_url
+                                ? `<img src="${escapeHtml(book.cover_url)}" class="book-cover" alt="Cover" onerror="this.outerHTML='<div class=book-cover-placeholder>${initials}</div>'">`
+                                : `<div class="book-cover-placeholder" data-book-id="${book.id}" data-title="${escapeHtml(book.title)}" data-author="${escapeHtml(book.author)}">${initials}</div>`
+                            }
+                            <div class="cover-edit-badge"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></div>
+                        </div>
                         <div class="book-info">
                             <div class="book-title">${escapeHtml(book.title)}</div>
                             <div class="book-author">by ${escapeHtml(book.author)}</div>
@@ -571,7 +574,143 @@ async function saveCoverUrl(bookId, coverUrl) {
     return saveCoverAndGenre(bookId, coverUrl, '');
 }
 
-// ============== SUGGESTIONS ==============
+// ============== COVER PICKER ==============
+let coverPickerBookId = null;
+
+function openCoverPicker(bookId) {
+    const book = allBooks.find(b => b.id === bookId);
+    if (!book) return;
+    coverPickerBookId = bookId;
+    const modal = document.getElementById('coverPickerModal');
+    const title = document.getElementById('coverPickerTitle');
+    const grid = document.getElementById('coverPickerGrid');
+    const searchInput = document.getElementById('coverPickerSearch');
+
+    title.textContent = `${book.title} by ${book.author}`;
+    searchInput.value = `${book.title} ${book.author}`;
+    grid.innerHTML = '<div class="cover-picker-loading"><div class="spinner"></div><p>Searching for covers...</p></div>';
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+
+    fetchCoverOptions(book.title, book.author);
+}
+
+function closeCoverPicker() {
+    const modal = document.getElementById('coverPickerModal');
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+    coverPickerBookId = null;
+}
+
+function coverPickerSearchAgain() {
+    const query = document.getElementById('coverPickerSearch').value.trim();
+    if (!query) return;
+    const grid = document.getElementById('coverPickerGrid');
+    grid.innerHTML = '<div class="cover-picker-loading"><div class="spinner"></div><p>Searching for covers...</p></div>';
+    fetchCoverOptionsByQuery(query);
+}
+
+async function fetchCoverOptions(title, author) {
+    const query = `${title} ${author}`;
+    await fetchCoverOptionsByQuery(query);
+}
+
+async function fetchCoverOptionsByQuery(query) {
+    const grid = document.getElementById('coverPickerGrid');
+    try {
+        const encoded = encodeURIComponent(query);
+        const response = await fetch(`https://openlibrary.org/search.json?q=${encoded}&limit=20&fields=cover_i,title,author_name,edition_key,edition_count,first_publish_year,key`);
+        const data = await response.json();
+        const covers = [];
+        const seenCoverIds = new Set();
+
+        if (data.docs) {
+            for (const doc of data.docs) {
+                if (doc.cover_i && !seenCoverIds.has(doc.cover_i)) {
+                    seenCoverIds.add(doc.cover_i);
+                    covers.push({
+                        coverId: doc.cover_i,
+                        title: doc.title || '',
+                        author: (doc.author_name || []).join(', '),
+                        year: doc.first_publish_year || '',
+                        editions: doc.edition_count || 1,
+                        url: `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`,
+                        urlLarge: `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`,
+                    });
+                }
+            }
+
+            // Also fetch edition-level covers for the top results
+            const topDocs = data.docs.slice(0, 5);
+            for (const doc of topDocs) {
+                if (doc.edition_key && doc.edition_key.length > 0) {
+                    try {
+                        const edKeys = doc.edition_key.slice(0, 10).join(',');
+                        const edResponse = await fetch(`https://openlibrary.org/api/get_multiple?keys=${doc.edition_key.slice(0, 8).map(k => '/books/' + k).join(',')}&fields=covers,title,publishers,publish_date`);
+                        // Use a simpler approach: fetch editions via search
+                    } catch (e) { /* skip edition fetch errors */ }
+                }
+            }
+        }
+
+        if (covers.length === 0) {
+            grid.innerHTML = '<div class="cover-picker-empty">No covers found. Try a different search.</div>';
+            return;
+        }
+
+        grid.innerHTML = covers.map((c, i) => `
+            <div class="cover-option" onclick="selectCover('${c.url}')">
+                <img src="${c.url}" alt="Cover option"
+                     onerror="this.parentElement.style.display='none'"
+                     loading="lazy">
+                <div class="cover-option-info">
+                    <div class="cover-option-title">${escapeHtml(c.title)}</div>
+                    ${c.author ? `<div class="cover-option-author">${escapeHtml(c.author)}</div>` : ''}
+                    ${c.year ? `<div class="cover-option-year">${c.year}</div>` : ''}
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        grid.innerHTML = '<div class="cover-picker-empty">Error searching for covers. Please try again.</div>';
+    }
+}
+
+async function selectCover(coverUrl) {
+    if (!coverPickerBookId) return;
+    const bookId = coverPickerBookId;
+    const book = allBooks.find(b => b.id === bookId);
+
+    // Update the cover in the UI immediately
+    const bookItem = document.getElementById(`book-item-${bookId}`);
+    if (bookItem) {
+        const wrapper = bookItem.querySelector('.cover-wrapper');
+        if (wrapper) {
+            const initials = getBookInitials(book ? book.title : '');
+            wrapper.innerHTML = `
+                <img src="${escapeHtml(coverUrl)}" class="book-cover" alt="Cover"
+                     onerror="this.outerHTML='<div class=book-cover-placeholder>${initials}</div>'">
+                <div class="cover-edit-badge"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></div>`;
+        }
+    }
+
+    // Update local data
+    if (book) book.cover_url = coverUrl;
+
+    // Save to backend
+    await saveCoverUrl(bookId, coverUrl);
+    toast('Cover updated', 'success');
+    closeCoverPicker();
+}
+
+// Close modal on escape key or backdrop click
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        const modal = document.getElementById('coverPickerModal');
+        if (modal && modal.classList.contains('open')) closeCoverPicker();
+    }
+});
+
+// ============== SUGGESTIONS ==
 async function getSuggestions() {
     const btn = document.getElementById('getSuggestionsBtn');
     const numSuggestions = document.getElementById('numSuggestions').value;
