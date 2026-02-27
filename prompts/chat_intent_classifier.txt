@@ -4,6 +4,7 @@ Classify the user's message into exactly ONE of these intents:
 - "recommendation": User wants book recommendations/suggestions (e.g., "suggest me a book", "what should I read next", "I want something like...", "give me suggestions", "I'm looking for a thriller")
 - "context_response": User is answering a follow-up question or providing preferences (e.g., "I like mysteries", "something light and fun", "about 300 pages", "yes", "no", mood descriptions)
 - "library_query": User is asking about their own reading library (e.g., "how many books have I read", "what was the last book I read", "show me my fantasy books")
+- "library_update": User wants to modify their library — change a book's status, mark as read/to-read/currently-reading, add a new book, or remove a book (e.g., "mark Dune as read", "I just finished The Hobbit", "add 1984 to my to-read list", "I'm currently reading Project Hail Mary", "remove The Alchemist from my library")
 - "book_chat": User wants to discuss books/reading generally but isn't asking for recs (e.g., "what do you think about Dune", "tell me about this author", "is this book good")
 - "off_topic": Not about books, reading, or literature at all (e.g., "what's the weather", "write me code", "tell me a joke")
 

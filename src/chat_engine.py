@@ -103,6 +103,7 @@ class ConversationState(TypedDict):
     # Output
     response: str                      # final response to send back
     suggestions: List[Dict]            # structured suggestions if any
+    actions: List[Dict]                # library update actions if any
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -270,8 +271,49 @@ I can help you with:
 - 📊 **Library insights** — stats and patterns about your reading
 - 💬 **Book discussions** — let's chat about what you've read
 - 🎯 **Mood-based picks** — tell me your mood, I'll find the perfect book
+- ✏️ **Library updates** — mark books as read, add new books, update statuses
 
 What would you like to talk about?"""
+
+_DEFAULT_LIBRARY_UPDATE_PROMPT = """You are a helpful library management assistant for a book tracking app.
+The user wants to modify their book library. Parse their request and determine the action(s) to take.
+
+## User's Library
+{books_list}
+
+## User's Message
+{message}
+
+## Conversation Context
+{conversation_history}
+
+## Instructions
+Parse the user's request and output a JSON array of actions to perform. Each action should be a JSON object.
+
+Supported actions:
+1. **update_status** — Change a book's status
+   {{"action": "update_status", "title": "exact title", "author": "author name", "new_status": "read|to-read|currently-reading", "book_id": <id or null>, "read_date": "MM/DD/YYYY or null"}}
+
+2. **add_book** — Add a new book to the library
+   {{"action": "add_book", "title": "book title", "author": "author name", "status": "read|to-read|currently-reading", "read_date": "MM/DD/YYYY or null"}}
+
+3. **remove_book** — Remove a book from the library
+   {{"action": "remove_book", "title": "exact title", "author": "author name", "book_id": <id or null>}}
+
+## Rules
+- For update_status: match the title/author to a book in the library. Include the book_id if you can identify it.
+- Phrases like "I just finished X", "I completed X", "done with X" mean update_status to "read".
+- Phrases like "I started reading X", "I'm now reading X" mean update_status to "currently-reading".
+- Phrases like "add X to my to-read" mean add_book with status "to-read".
+- **Date handling**: If the user mentions WHEN they finished/read a book (e.g. "finished it on January 15th", "read it last Tuesday", "completed on 2025-12-01"), convert that to MM/DD/YYYY format and include it as `read_date`. Today's date is {today}. If no date is mentioned, set `read_date` to null.
+- If the book is already in the library with the requested status, include "already_done": true in the action.
+- If ambiguous (multiple matching books), include ALL possible matches and set "ambiguous": true on those actions.
+- Output ONLY a valid JSON object with these keys:
+  - "actions": the JSON array of actions
+  - "message": a friendly confirmation message describing what will be done (or what was already the case)
+  - "ambiguous": true if any actions are unclear
+
+JSON output:"""
 
 # ── Load from prompts/ directory (file overrides default if present) ─────────
 INTENT_CLASSIFIER_PROMPT  = load_prompt('chat_intent_classifier.txt', _DEFAULT_INTENT_CLASSIFIER_PROMPT)
@@ -281,6 +323,7 @@ RECOMMENDATION_PROMPT     = load_prompt('chat_recommendation.txt',    _DEFAULT_R
 LIBRARY_QUERY_PROMPT      = load_prompt('chat_library_query.txt',     _DEFAULT_LIBRARY_QUERY_PROMPT)
 CASUAL_CHAT_PROMPT        = load_prompt('chat_casual.txt',            _DEFAULT_CASUAL_CHAT_PROMPT)
 OFF_TOPIC_RESPONSE        = load_prompt('chat_off_topic.txt',         _DEFAULT_OFF_TOPIC_RESPONSE)
+LIBRARY_UPDATE_PROMPT     = load_prompt('chat_library_update.txt',    _DEFAULT_LIBRARY_UPDATE_PROMPT)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -330,6 +373,7 @@ class BookChatEngine:
         builder.add_node("casual_chat", self._casual_chat)
         builder.add_node("handle_off_topic", self._handle_off_topic)
         builder.add_node("handle_blocked", self._handle_blocked)
+        builder.add_node("handle_library_update", self._handle_library_update)
 
         # Define edges
         builder.add_edge(START, "classify_intent")
@@ -345,6 +389,7 @@ class BookChatEngine:
                 "recommendation": "generate_recommendations",
                 "context_response": "gather_context",
                 "library_query": "answer_library_query",
+                "library_update": "handle_library_update",
                 "book_chat": "casual_chat",
                 "off_topic": "handle_off_topic",
             }
@@ -363,6 +408,7 @@ class BookChatEngine:
         # Terminal nodes
         builder.add_edge("generate_recommendations", END)
         builder.add_edge("answer_library_query", END)
+        builder.add_edge("handle_library_update", END)
         builder.add_edge("casual_chat", END)
         builder.add_edge("handle_off_topic", END)
         builder.add_edge("handle_blocked", END)
@@ -388,7 +434,7 @@ class BookChatEngine:
             intent = content.strip().lower().strip('"\'')
 
             # Validate intent
-            valid_intents = ['recommendation', 'context_response', 'library_query', 'book_chat', 'off_topic']
+            valid_intents = ['recommendation', 'context_response', 'library_query', 'library_update', 'book_chat', 'off_topic']
             if intent not in valid_intents:
                 intent = 'recommendation'  # Default to recommendation
 
@@ -623,6 +669,63 @@ class BookChatEngine:
         """Handle off-topic messages."""
         return {'response': OFF_TOPIC_RESPONSE}
 
+    def _handle_library_update(self, state: ConversationState) -> dict:
+        """Handle library update requests (mark as read, add book, remove, etc.)."""
+        all_books = state.get('all_books', [])
+        conversation_history = self._format_conversation(state.get('messages', []))
+
+        # Build a compact book list for the LLM
+        book_lines = []
+        for b in all_books:
+            status = b.get('status', 'unknown')
+            book_lines.append(
+                f"[id={b.get('id')}] {b.get('title', '')} by {b.get('author', '')} [{status}]"
+            )
+        books_list = "\n".join(book_lines) if book_lines else "Library is empty"
+
+        from datetime import datetime as _dt
+        today_str = _dt.now().strftime('%m/%d/%Y')
+
+        prompt = LIBRARY_UPDATE_PROMPT.format(
+            books_list=books_list,
+            message=state['current_input'],
+            conversation_history=conversation_history,
+            today=today_str,
+        )
+
+        try:
+            response = self.llm.invoke([HumanMessage(content=prompt)])
+            content = response.content if response.content is not None else ''
+            text = content.strip()
+
+            # Try to extract JSON from the response (might be wrapped in ```json blocks)
+            json_str = text
+            if '```json' in json_str:
+                json_str = json_str.split('```json')[1].split('```')[0].strip()
+            elif '```' in json_str:
+                json_str = json_str.split('```')[1].split('```')[0].strip()
+
+            parsed = json.loads(json_str)
+            actions = parsed.get('actions', [])
+            message = parsed.get('message', 'I\'ll update your library.')
+            ambiguous = parsed.get('ambiguous', False)
+
+            if ambiguous:
+                message += "\n\n⚠️ I wasn't sure about some matches — please confirm the actions below."
+
+            return {
+                'response': message,
+                'actions': actions,
+            }
+
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"Library update parsing failed: {e}")
+            traceback.print_exc()
+            return {
+                'response': "I understood you want to update your library, but I had trouble parsing the details. Could you try rephrasing? For example:\n\n- \"Mark **Dune** as read\"\n- \"I just finished **The Hobbit**\"\n- \"Add **1984** by George Orwell to my to-read list\"\n- \"I'm currently reading **Project Hail Mary**\"",
+                'actions': [],
+            }
+
     def _handle_blocked(self, state: ConversationState) -> dict:
         """Handle messages that failed guardrails."""
         return {'response': "I can't help with that request. Let's talk about books instead! 📚 What are you looking to read?"}
@@ -810,6 +913,7 @@ class BookChatEngine:
             'gathered_preferences': gathered_preferences or {},
             'response': '',
             'suggestions': [],
+            'actions': [],
         }
 
         try:
@@ -823,6 +927,7 @@ class BookChatEngine:
             return {
                 'response': response_text,
                 'suggestions': result.get('suggestions', []),
+                'actions': result.get('actions', []),
                 'conversation_id': result.get('conversation_id', initial_state['conversation_id']),
                 'intent': result.get('intent', ''),
                 'messages': msg_history,

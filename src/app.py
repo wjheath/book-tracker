@@ -96,6 +96,15 @@ def add_book():
         
         with Database(DB_PATH) as db:
             book_manager = BookManager(db)
+            
+            # Check for duplicates
+            existing = book_manager.find_duplicate(title, author)
+            if existing:
+                return jsonify({
+                    'success': False,
+                    'error': f'"{title}" by {author} is already in your library (status: {existing.get("status", "unknown")})'
+                }), 409
+            
             book_manager.add_book(title, author, status, read_date)
         
         return jsonify({
@@ -123,22 +132,21 @@ def update_book_status(book_id):
     try:
         data = request.json
         new_status = data.get('status', '').strip().lower()
-        read_date = data.get('read_date', '').strip() or None
+        read_date = data.get('read_date')
+        if isinstance(read_date, str):
+            read_date = read_date.strip() or None
         
         if new_status not in ['read', 'to-read', 'currently-reading']:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
         with Database(DB_PATH) as db:
             # If status is being set to 'read' and no date provided, use today's date
-            if new_status == 'read' and not read_date:
+            if new_status == 'read' and read_date is None and 'read_date' not in data:
                 read_date = datetime.now().strftime('%m/%d/%Y')
             
-            if read_date:
-                query = "UPDATE books SET status = ?, read_date = ? WHERE id = ?"
-                db.execute_query(query, (new_status, read_date, book_id))
-            else:
-                query = "UPDATE books SET status = ? WHERE id = ?"
-                db.execute_query(query, (new_status, book_id))
+            # Always update both status and read_date together
+            query = "UPDATE books SET status = ?, read_date = ? WHERE id = ?"
+            db.execute_query(query, (new_status, read_date, book_id))
         
         return jsonify({'success': True, 'message': f'Book status updated to {new_status}'})
     except Exception as e:
@@ -163,7 +171,11 @@ def update_book(book_id):
             author = data.get('author', book['author']).strip() if data.get('author') else book['author']
             status = data.get('status', book['status']).strip().lower() if data.get('status') else book['status']
             read_date = data.get('read_date', book.get('read_date'))
+            if 'read_date' in data and not data['read_date']:
+                read_date = None  # Explicitly clearing the date
             genre = data.get('genre', book.get('genre'))
+            if 'genre' in data and not data['genre']:
+                genre = None
             cover_url = data.get('cover_url', book.get('cover_url'))
             date_added = data.get('date_added', book.get('date_added'))
             
@@ -202,6 +214,37 @@ def bulk_delete_books():
             db.execute_query(query, tuple(book_ids))
         
         return jsonify({'success': True, 'message': f'Deleted {len(book_ids)} books', 'deleted': len(book_ids)})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/books/duplicates', methods=['GET'])
+def find_duplicates():
+    """Find duplicate books (same title+author, case-insensitive)"""
+    try:
+        with Database(DB_PATH) as db:
+            # Find groups with more than one entry
+            groups = db.fetch_all("""
+                SELECT LOWER(TRIM(title)) as ltitle, LOWER(TRIM(author)) as lauthor, COUNT(*) as cnt
+                FROM books
+                GROUP BY ltitle, lauthor
+                HAVING cnt > 1
+                ORDER BY cnt DESC
+            """)
+            
+            duplicates = []
+            for g in groups:
+                entries = db.fetch_all(
+                    "SELECT * FROM books WHERE LOWER(TRIM(title)) = ? AND LOWER(TRIM(author)) = ? ORDER BY id",
+                    (g['ltitle'], g['lauthor'])
+                )
+                duplicates.append({
+                    'title': entries[0]['title'],
+                    'author': entries[0]['author'],
+                    'count': g['cnt'],
+                    'entries': entries,
+                })
+        
+        return jsonify({'success': True, 'duplicates': duplicates, 'total_groups': len(duplicates)})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -568,16 +611,22 @@ def chat_message():
             # Generate a title from the first user message
             conv_title = message[:80] + ('...' if len(message) > 80 else '')
             
-            # Attach suggestions to the last assistant message for history restoration
+            # Attach suggestions & actions to the last assistant message for history restoration
             messages_to_save = list(result.get('messages', []))
             suggestions = result.get('suggestions', [])
-            if suggestions and messages_to_save:
+            actions = result.get('actions', [])
+            if (suggestions or actions) and messages_to_save:
                 for i in range(len(messages_to_save) - 1, -1, -1):
                     msg = messages_to_save[i]
                     if isinstance(msg, dict):
                         role = msg.get('role', msg.get('type', ''))
                         if role not in ('user', 'human'):
-                            messages_to_save[i] = {**msg, 'suggestions': suggestions}
+                            extra = {}
+                            if suggestions:
+                                extra['suggestions'] = suggestions
+                            if actions:
+                                extra['actions'] = actions
+                            messages_to_save[i] = {**msg, **extra}
                             break
             
             if conversation_id:
@@ -595,9 +644,123 @@ def chat_message():
             'success': True,
             'response': result.get('response', ''),
             'suggestions': result.get('suggestions', []),
+            'actions': result.get('actions', []),
             'conversation_id': conv_id,
             'intent': result.get('intent', ''),
         })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/chat/actions', methods=['POST'])
+def execute_chat_action():
+    """Execute a library update action from the chat engine."""
+    try:
+        data = request.json
+        action_type = data.get('action', '')
+        title = data.get('title', '').strip()
+        author = data.get('author', '').strip()
+        book_id = data.get('book_id')
+        
+        with Database(DB_PATH) as db:
+            book_manager = BookManager(db)
+            
+            if action_type == 'update_status':
+                new_status = data.get('new_status', '').strip().lower()
+                if new_status not in ['read', 'to-read', 'currently-reading']:
+                    return jsonify({'success': False, 'error': f'Invalid status: {new_status}'}), 400
+                
+                # Find the book by ID or by title/author match
+                target_book = None
+                if book_id:
+                    matches = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
+                    if matches:
+                        target_book = matches[0]
+                
+                if not target_book and title:
+                    all_books = book_manager.list_books()
+                    title_lower = title.lower()
+                    for b in all_books:
+                        if (b.get('title', '').lower() == title_lower or
+                            title_lower in (b.get('title', '').lower())):
+                            target_book = b
+                            break
+                
+                if not target_book:
+                    return jsonify({'success': False, 'error': f'Could not find "{title}" in your library'}), 404
+                
+                bid = target_book['id']
+                read_date = data.get('read_date') or None
+                if new_status == 'read' and not read_date:
+                    read_date = datetime.now().strftime('%m/%d/%Y')
+                
+                if read_date:
+                    db.execute_query("UPDATE books SET status = ?, read_date = ? WHERE id = ?", (new_status, read_date, bid))
+                else:
+                    db.execute_query("UPDATE books SET status = ? WHERE id = ?", (new_status, bid))
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Updated "{target_book["title"]}" to {new_status}',
+                    'book_id': bid,
+                    'new_status': new_status,
+                })
+            
+            elif action_type == 'add_book':
+                status = data.get('status', 'to-read').strip().lower()
+                if status not in ['read', 'to-read', 'currently-reading']:
+                    status = 'to-read'
+                
+                if not title or not author:
+                    return jsonify({'success': False, 'error': 'Title and author are required'}), 400
+                
+                read_date = data.get('read_date') or None
+                if status == 'read' and not read_date:
+                    read_date = datetime.now().strftime('%m/%d/%Y')
+                
+                # Check for duplicates
+                existing = book_manager.find_duplicate(title, author)
+                if existing:
+                    return jsonify({
+                        'success': False,
+                        'error': f'"{title}" by {author} is already in your library (status: {existing.get("status", "unknown")})'
+                    }), 409
+                
+                book_manager.add_book(title, author, status, read_date)
+                return jsonify({
+                    'success': True,
+                    'message': f'Added "{title}" by {author} [{status}]',
+                })
+            
+            elif action_type == 'remove_book':
+                target_book = None
+                if book_id:
+                    matches = db.fetch_all("SELECT * FROM books WHERE id = ?", (book_id,))
+                    if matches:
+                        target_book = matches[0]
+                
+                if not target_book and title:
+                    all_books = book_manager.list_books()
+                    title_lower = title.lower()
+                    for b in all_books:
+                        if b.get('title', '').lower() == title_lower:
+                            target_book = b
+                            break
+                
+                if not target_book:
+                    return jsonify({'success': False, 'error': f'Could not find "{title}" in your library'}), 404
+                
+                book_manager.remove_book(target_book['id'])
+                return jsonify({
+                    'success': True,
+                    'message': f'Removed "{target_book["title"]}" from your library',
+                    'book_id': target_book['id'],
+                })
+            
+            else:
+                return jsonify({'success': False, 'error': f'Unknown action: {action_type}'}), 400
+                
     except Exception as e:
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

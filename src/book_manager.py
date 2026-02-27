@@ -5,6 +5,15 @@ class BookManager:
     def __init__(self, database):
         self.database = database
 
+    def find_duplicate(self, title, author):
+        """Check if a book with the same title+author already exists (case-insensitive).
+        Returns the existing book dict or None."""
+        rows = self.database.fetch_all(
+            "SELECT * FROM books WHERE LOWER(TRIM(title)) = LOWER(TRIM(?)) AND LOWER(TRIM(author)) = LOWER(TRIM(?))",
+            (title.strip(), author.strip())
+        )
+        return rows[0] if rows else None
+
     def add_book(self, title, author, status='to-read', read_date=None, date_added=None):
         if date_added is None:
             date_added = datetime.now().strftime('%Y-%m-%d')
@@ -41,6 +50,7 @@ class BookManager:
                     return ''
 
                 count = 0
+                skipped = 0
                 for row in reader:
                     title = _col(row, 'Title')
                     author = _col(row, 'Authors')
@@ -49,10 +59,16 @@ class BookManager:
                     date_added = _col(row, 'Date Added') or None
 
                     if title and author:
+                        if self.find_duplicate(title, author):
+                            skipped += 1
+                            continue
                         self.add_book(title, author, status.lower(), read_date, date_added)
                         count += 1
 
-                print(f"Successfully imported {count} books from CSV!")
+                if skipped:
+                    print(f"Successfully imported {count} books from CSV! ({skipped} duplicates skipped)")
+                else:
+                    print(f"Successfully imported {count} books from CSV!")
                 return count
         except FileNotFoundError:
             print(f"CSV file not found at {csv_path}")

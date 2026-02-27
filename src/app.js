@@ -331,7 +331,9 @@ function renderBooks() {
                         <div class="book-info">
                             <div class="book-title">${escapeHtml(book.title)}</div>
                             <div class="book-author">by ${escapeHtml(book.author)}</div>
-                            ${book.read_date ? `<div class="book-date">Read: ${escapeHtml(book.read_date)}</div>` : ''}
+                            ${book.read_date || book.status === 'read' ? `<div class="book-date" onclick="editReadDate(event, ${book.id})" title="Click to edit read date">
+                                ${book.read_date ? `Read: ${escapeHtml(book.read_date)}` : '<span class="add-date-hint">Add read date</span>'}
+                            </div>` : ''}
                             ${book.genre ? `<div class="book-genre">${escapeHtml(book.genre)}</div>` : ''}
                         </div>
                     </div>
@@ -449,6 +451,86 @@ async function updateStatus(bookId, newStatus) {
     } catch (error) {
         toast('Error updating status: ' + error.message, 'error');
     }
+}
+
+// ============== READ DATE EDITING ==============
+function editReadDate(event, bookId) {
+    event.stopPropagation();
+    const dateEl = event.currentTarget;
+    if (dateEl.querySelector('input')) return; // already editing
+
+    const book = allBooks.find(b => b.id === bookId);
+    if (!book) return;
+
+    // Parse existing date (MM/DD/YYYY) into YYYY-MM-DD for input[type=date]
+    let isoDate = '';
+    if (book.read_date) {
+        const parts = book.read_date.split('/');
+        if (parts.length === 3) {
+            isoDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+        }
+    }
+
+    dateEl.innerHTML = `
+        <input type="date" class="read-date-input" value="${isoDate}"
+               onclick="event.stopPropagation()"
+               onblur="saveReadDate(${bookId}, this)"
+               onkeydown="if(event.key==='Enter') this.blur(); if(event.key==='Escape') { this.dataset.cancel='1'; this.blur(); }">
+        <button class="read-date-clear" onclick="event.stopPropagation(); clearReadDate(${bookId})" title="Clear date">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>`;
+    const input = dateEl.querySelector('input');
+    input.focus();
+}
+
+async function saveReadDate(bookId, input) {
+    if (input.dataset.cancel === '1') { renderBooks(); return; }
+    const isoVal = input.value; // YYYY-MM-DD
+    let displayDate = '';
+    if (isoVal) {
+        const [y, m, d] = isoVal.split('-');
+        displayDate = `${m}/${d}/${y}`;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/books/${bookId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: allBooks.find(b => b.id === bookId)?.status || 'read', read_date: displayDate || null }),
+        });
+        const data = await response.json();
+        if (data.success) {
+            const book = allBooks.find(b => b.id === bookId);
+            if (book) book.read_date = displayDate || null;
+            toast('Read date updated', 'success');
+        } else {
+            toast(data.error || 'Failed to update date', 'error');
+        }
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
+    renderFilteredBooks();
+}
+
+async function clearReadDate(bookId) {
+    try {
+        const response = await fetch(`${API_URL}/books/${bookId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ read_date: '' }),
+        });
+        const data = await response.json();
+        if (data.success) {
+            const book = allBooks.find(b => b.id === bookId);
+            if (book) book.read_date = null;
+            toast('Read date cleared', 'success');
+        } else {
+            toast(data.error || 'Failed', 'error');
+        }
+    } catch (e) {
+        toast('Error: ' + e.message, 'error');
+    }
+    renderFilteredBooks();
 }
 
 // ============== BOOK COVERS ==============
@@ -991,6 +1073,20 @@ function adminEditCell(td, bookId, field) {
                 <option value="read" ${currentValue === 'read' ? 'selected' : ''}>read</option>
             </select>`;
         td.querySelector('select').focus();
+    } else if (field === 'read_date' || field === 'date_added') {
+        // Use date picker for date fields
+        let isoDate = '';
+        if (currentValue) {
+            const parts = currentValue.split('/');
+            if (parts.length === 3) {
+                isoDate = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+            }
+        }
+        td.innerHTML = `
+            <input type="date" value="${isoDate}"
+                   onblur="adminSaveDateCell(${bookId}, '${field}', this.value, this.parentElement)"
+                   onkeydown="if(event.key==='Enter') this.blur(); if(event.key==='Escape') adminCommitEdit();">`;
+        td.querySelector('input').focus();
     } else {
         td.innerHTML = `
             <input type="text" value="${escapeHtml(currentValue)}"
@@ -1041,6 +1137,15 @@ async function adminSaveCell(bookId, field, newValue, td) {
     adminEditingCell = null;
     adminRender();
     loadStats();
+}
+
+function adminSaveDateCell(bookId, field, isoValue, td) {
+    let displayDate = '';
+    if (isoValue) {
+        const [y, m, d] = isoValue.split('-');
+        displayDate = `${m}/${d}/${y}`;
+    }
+    adminSaveCell(bookId, field, displayDate, td);
 }
 
 function adminCommitEdit() {
@@ -1173,9 +1278,9 @@ function adminAddRow() {
                 <option value="read">read</option>
             </select>
         </td>
-        <td><input type="text" placeholder="MM/DD/YYYY" id="newRowReadDate"></td>
+        <td><input type="date" id="newRowReadDate"></td>
         <td><input type="text" placeholder="Genre" id="newRowGenre"></td>
-        <td><input type="text" placeholder="YYYY-MM-DD" id="newRowDateAdded"></td>
+        <td><input type="date" id="newRowDateAdded"></td>
         <td class="actions-cell" style="display: flex; gap: 4px;">
             <button onclick="adminSaveNewRow()" style="padding: 4px 8px; font-size: 11px; background: var(--success);">Save</button>
             <button onclick="document.getElementById('admin-new-row').remove()"
@@ -1195,7 +1300,12 @@ async function adminSaveNewRow() {
     const title = document.getElementById('newRowTitle').value.trim();
     const author = document.getElementById('newRowAuthor').value.trim();
     const status = document.getElementById('newRowStatus').value;
-    const readDate = document.getElementById('newRowReadDate').value.trim() || null;
+    const rawReadDate = document.getElementById('newRowReadDate').value;
+    let readDate = null;
+    if (rawReadDate) {
+        const [y, m, d] = rawReadDate.split('-');
+        readDate = `${m}/${d}/${y}`;
+    }
 
     if (!title || !author) {
         toast('Title and author are required', 'error');
@@ -1253,6 +1363,92 @@ async function adminDeleteRow(bookId) {
 function exportCSV() {
     window.open(`${API_URL}/books/export`, '_blank');
     toast('Downloading CSV export...', 'info');
+}
+
+// ============== ADMIN: FIND DUPLICATES ==============
+async function findDuplicates() {
+    try {
+        const response = await fetch(`${API_URL}/books/duplicates`);
+        const data = await response.json();
+
+        if (!data.success) {
+            toast(data.error || 'Failed to check duplicates', 'error');
+            return;
+        }
+
+        const dupes = data.duplicates || [];
+        if (dupes.length === 0) {
+            toast('No duplicates found — your library is clean!', 'success');
+            return;
+        }
+
+        // Build a modal to display duplicates
+        let existing = document.getElementById('duplicatesModal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'duplicatesModal';
+        overlay.className = 'cover-picker-overlay';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+        let html = `<div class="cover-picker-panel" style="max-width: 700px;">
+            <div class="cover-picker-header">
+                <h3>Duplicate Books Found (${dupes.length} group${dupes.length !== 1 ? 's' : ''})</h3>
+                <button class="cover-picker-close" onclick="document.getElementById('duplicatesModal').remove()">&times;</button>
+            </div>
+            <div class="cover-picker-body" style="max-height: 60vh; overflow-y: auto;">`;
+
+        dupes.forEach((group) => {
+            html += `<div class="dupe-group">
+                <div class="dupe-group-title">"${escapeHtml(group.title)}" by ${escapeHtml(group.author)} — ${group.count} copies</div>
+                <table class="dupe-table">
+                    <thead><tr><th>ID</th><th>Status</th><th>Read Date</th><th>Date Added</th><th>Action</th></tr></thead>
+                    <tbody>`;
+            group.entries.forEach((entry) => {
+                html += `<tr id="dupe-row-${entry.id}">
+                    <td>${entry.id}</td>
+                    <td><span class="status-badge status-${entry.status}">${escapeHtml(entry.status)}</span></td>
+                    <td>${escapeHtml(entry.read_date || '—')}</td>
+                    <td>${escapeHtml(entry.date_added || '—')}</td>
+                    <td><button class="delete-btn" style="padding:4px 10px; font-size:11px;" onclick="deleteDuplicateRow(${entry.id}, this)">Delete</button></td>
+                </tr>`;
+            });
+            html += `</tbody></table></div>`;
+        });
+
+        html += `</div></div>`;
+        overlay.innerHTML = html;
+        document.body.appendChild(overlay);
+
+    } catch (e) {
+        toast('Error checking duplicates: ' + e.message, 'error');
+    }
+}
+
+async function deleteDuplicateRow(bookId, btn) {
+    if (!confirm('Delete this duplicate entry?')) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+        const response = await fetch(`${API_URL}/books/${bookId}`, { method: 'DELETE' });
+        const data = await response.json();
+        if (data.success) {
+            const row = document.getElementById(`dupe-row-${bookId}`);
+            if (row) row.style.opacity = '0.3';
+            btn.textContent = 'Deleted';
+            allBooks = allBooks.filter(b => b.id !== bookId);
+            adminBooks = adminBooks.filter(b => b.id !== bookId);
+            toast('Duplicate removed', 'success');
+            loadStats();
+        } else {
+            btn.textContent = 'Error';
+            toast(data.error || 'Failed', 'error');
+        }
+    } catch (e) {
+        btn.textContent = 'Retry';
+        btn.disabled = false;
+        toast('Error: ' + e.message, 'error');
+    }
 }
 
 // ====================================================================
@@ -1376,6 +1572,7 @@ async function chatSend() {
                     'recommendation': 'Recommending',
                     'context_response': 'Understanding',
                     'library_query': 'Library',
+                    'library_update': 'Updating Library',
                     'book_chat': 'Chatting',
                     'off_topic': 'Off Topic',
                 };
@@ -1383,7 +1580,7 @@ async function chatSend() {
                 badge.style.display = 'inline-block';
             }
 
-            let responseHtml = formatChatResponse(data.response, data.suggestions || []);
+            let responseHtml = formatChatResponse(data.response, data.suggestions || [], data.actions || []);
 
             messagesEl.innerHTML += `
                 <div class="chat-message assistant">
@@ -1417,8 +1614,56 @@ async function chatSend() {
     }
 }
 
-function formatChatResponse(text, suggestions) {
+function formatChatResponse(text, suggestions, actions) {
     let html = escapeHtml(text);
+
+    // Render library update action cards
+    if (actions && actions.length > 0) {
+        html += '<div class="chat-actions-container">';
+        actions.forEach((a, idx) => {
+            const safeTitle = escapeHtml(a.title || '');
+            const safeAuthor = escapeHtml(a.author || '');
+            const actionData = escapeHtml(JSON.stringify(a));
+            let label = '';
+            let icon = '';
+            if (a.action === 'update_status') {
+                const statusLabels = { 'read': 'Read', 'to-read': 'To Read', 'currently-reading': 'Currently Reading' };
+                label = `Change status to <strong>${statusLabels[a.new_status] || a.new_status}</strong>`;
+                if (a.read_date) label += ` <span class="chat-action-date">(${escapeHtml(a.read_date)})</span>`;
+                icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>';
+            } else if (a.action === 'add_book') {
+                const statusLabels = { 'read': 'Read', 'to-read': 'To Read', 'currently-reading': 'Currently Reading' };
+                label = `Add to library as <strong>${statusLabels[a.status] || a.status}</strong>`;
+                if (a.read_date) label += ` <span class="chat-action-date">(${escapeHtml(a.read_date)})</span>`;
+                icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+            } else if (a.action === 'remove_book') {
+                label = `Remove from library`;
+                icon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>';
+            }
+            if (a.already_done) {
+                html += `
+                    <div class="chat-action-card done">
+                        <div class="chat-action-info">
+                            <div class="chat-action-book">${safeTitle}${safeAuthor ? ' by ' + safeAuthor : ''}</div>
+                            <div class="chat-action-label">Already done — no change needed</div>
+                        </div>
+                    </div>`;
+            } else {
+                html += `
+                    <div class="chat-action-card" id="chat-action-${idx}">
+                        <div class="chat-action-info">
+                            <div class="chat-action-book">${safeTitle}${safeAuthor ? ' by ' + safeAuthor : ''}</div>
+                            <div class="chat-action-label">${icon} ${label}</div>
+                        </div>
+                        <div class="chat-action-buttons">
+                            <button class="chat-action-confirm" data-action='${actionData}' data-idx="${idx}" onclick="executeChatAction(this)">Confirm</button>
+                            <button class="chat-action-skip" data-idx="${idx}" onclick="skipChatAction(this)">Skip</button>
+                        </div>
+                    </div>`;
+            }
+        });
+        html += '</div>';
+    }
 
     if (suggestions && suggestions.length > 0) {
         html += '<div style="margin-top: 12px;">';
@@ -1489,6 +1734,48 @@ async function chatRejectSuggestion(btn) {
     }
 }
 
+async function executeChatAction(btn) {
+    const actionData = JSON.parse(btn.dataset.action);
+    const idx = btn.dataset.idx;
+    const card = document.getElementById(`chat-action-${idx}`);
+    btn.disabled = true;
+    btn.textContent = 'Working...';
+    try {
+        const response = await fetch(`${API_URL}/chat/actions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(actionData),
+        });
+        const data = await response.json();
+        if (data.success) {
+            if (card) {
+                card.classList.add('done');
+                card.querySelector('.chat-action-buttons').innerHTML = '<span class="chat-action-done-label">Done</span>';
+            }
+            toast(data.message, 'success');
+            loadBooks();
+            loadStats();
+        } else {
+            btn.textContent = 'Retry';
+            btn.disabled = false;
+            toast(data.error || 'Failed', 'error');
+        }
+    } catch (e) {
+        btn.textContent = 'Retry';
+        btn.disabled = false;
+        toast('Connection error', 'error');
+    }
+}
+
+function skipChatAction(btn) {
+    const idx = btn.dataset.idx;
+    const card = document.getElementById(`chat-action-${idx}`);
+    if (card) {
+        card.classList.add('skipped');
+        card.querySelector('.chat-action-buttons').innerHTML = '<span class="chat-action-skip-label">Skipped</span>';
+    }
+}
+
 async function chatLoadConversation(convId) {
     try {
         const response = await fetch(`${API_URL}/chat/conversations/${convId}`);
@@ -1505,7 +1792,7 @@ async function chatLoadConversation(convId) {
                 messagesEl.innerHTML += `
                     <div class="chat-message ${isUser ? 'user' : 'assistant'}">
                         <div class="avatar">${isUser ? 'You' : 'AI'}</div>
-                        <div class="chat-bubble">${isUser ? escapeHtml(m.content) : formatChatResponse(m.content, m.suggestions || [])}</div>
+                        <div class="chat-bubble">${isUser ? escapeHtml(m.content) : formatChatResponse(m.content, m.suggestions || [], m.actions || [])}</div>
                     </div>`;
             });
 
