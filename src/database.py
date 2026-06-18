@@ -1,23 +1,29 @@
-class Database:
-    def __init__(self, db_file):
-        self.db_file = db_file
-        self.connection = None
+import logging
+import sqlite3
+from typing import Any, Dict, List, Optional, Sequence
 
-    def __enter__(self):
+logger = logging.getLogger(__name__)
+
+
+class Database:
+    def __init__(self, db_file: str) -> None:
+        self.db_file = db_file
+        self.connection: Optional[sqlite3.Connection] = None
+
+    def __enter__(self) -> "Database":
         """Support 'with Database(path) as db:' pattern to avoid connection leaks."""
         self.connect()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
         self.close()
         return False  # Don't suppress exceptions
 
-    def connect(self):
-        import sqlite3
+    def connect(self) -> None:
         self.connection = sqlite3.connect(self.db_file)
         self.create_table()
 
-    def create_table(self):
+    def create_table(self) -> None:
         query = """
         CREATE TABLE IF NOT EXISTS books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +37,7 @@ class Database:
         );
         """
         self.execute_query(query)
-        
+
         # Create rejected_suggestions table for thumbs-down books
         rejected_query = """
         CREATE TABLE IF NOT EXISTS rejected_suggestions (
@@ -68,7 +74,7 @@ class Database:
         );
         """
         self.execute_query(profile_query)
-        
+
         # User-level key/value settings (e.g. favorite_authors)
         self.execute_query("""
         CREATE TABLE IF NOT EXISTS user_settings (
@@ -86,22 +92,23 @@ class Database:
         for migration in migrations:
             try:
                 self.execute_query(migration)
-            except:
-                pass  # Column already exists
+            except sqlite3.OperationalError as e:
+                if "duplicate column name" not in str(e):
+                    logger.warning("Migration %r failed unexpectedly: %s", migration, e)
 
-    def fetch_all(self, query, parameters=()):
+    def fetch_all(self, query: str, parameters: Sequence[Any] = ()) -> List[Dict[str, Any]]:
         cursor = self.connection.cursor()
         cursor.execute(query, parameters)
         columns = [description[0] for description in cursor.description]
         results = [dict(zip(columns, row)) for row in cursor.fetchall()]
         return results
 
-    def execute_query(self, query, parameters=()):
+    def execute_query(self, query: str, parameters: Sequence[Any] = ()) -> sqlite3.Cursor:
         cursor = self.connection.cursor()
         cursor.execute(query, parameters)
         self.connection.commit()
         return cursor
 
-    def close(self):
+    def close(self) -> None:
         if self.connection:
             self.connection.close()

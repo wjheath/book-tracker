@@ -1,11 +1,15 @@
 import csv
 from datetime import datetime
+from typing import Dict, List, Optional
+
+from database import Database
+
 
 class BookManager:
-    def __init__(self, database):
+    def __init__(self, database: Database) -> None:
         self.database = database
 
-    def find_duplicate(self, title, author):
+    def find_duplicate(self, title: str, author: str) -> Optional[Dict]:
         """Check if a book with the same title+author already exists (case-insensitive).
         Returns the existing book dict or None."""
         rows = self.database.fetch_all(
@@ -14,21 +18,22 @@ class BookManager:
         )
         return rows[0] if rows else None
 
-    def add_book(self, title, author, status='to-read', read_date=None, date_added=None):
+    def add_book(self, title: str, author: str, status: str = 'to-read',
+                 read_date: Optional[str] = None, date_added: Optional[str] = None) -> None:
         if date_added is None:
             date_added = datetime.now().strftime('%Y-%m-%d')
         query = "INSERT INTO books (title, author, status, read_date, date_added) VALUES (?, ?, ?, ?, ?)"
         self.database.execute_query(query, (title, author, status, read_date, date_added))
 
-    def remove_book(self, book_id):
+    def remove_book(self, book_id: int) -> None:
         query = "DELETE FROM books WHERE id = ?"
         self.database.execute_query(query, (book_id,))
 
-    def list_books(self):
+    def list_books(self) -> List[Dict]:
         query = "SELECT * FROM books"
         return self.database.fetch_all(query)
-    
-    def import_from_csv(self, csv_path):
+
+    def import_from_csv(self, csv_path: str) -> int:
         """Import books from StoryGraph CSV export.
         
         Reads: Title, Authors, Read Status, Date Read, Date Added

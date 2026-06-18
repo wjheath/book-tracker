@@ -22,13 +22,6 @@ def print_menu():
 def main():
     # Load configuration
     db_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'books.db')
-    
-    # Initialize database
-    db = Database(db_path)
-    db.connect()
-
-    # Initialize book manager
-    book_manager = BookManager(db)
 
     # Initialize LLM suggester
     try:
@@ -41,6 +34,12 @@ def main():
     print("Welcome to the Book Tracker App!")
     print("Your library has been loaded successfully.")
 
+    with Database(db_path) as db:
+        book_manager = BookManager(db)
+        _run_menu_loop(book_manager, llm_suggester)
+
+
+def _run_menu_loop(book_manager, llm_suggester):
     while True:
         print_menu()
         choice = input("\nChoose an option (1-7): ").strip()
@@ -60,9 +59,28 @@ def main():
         elif choice == '2':
             print("\n--- Remove Book ---")
             title = input("Enter book title to remove: ").strip()
-            # In a real app, we'd need to find by ID or implement better search
-            print("Note: Remove by ID would require a better interface")
-            print("Current implementation would need enhancement.")
+            if not title:
+                print("✗ Title is required.")
+                continue
+
+            matches = [b for b in book_manager.list_books() if b['title'].strip().lower() == title.lower()]
+            if not matches:
+                print(f"✗ No book found with title '{title}'.")
+            elif len(matches) == 1:
+                book = matches[0]
+                book_manager.remove_book(book['id'])
+                print(f"✓ Removed '{book['title']}' by {book['author']}")
+            else:
+                print(f"Found {len(matches)} books with that title:")
+                for i, b in enumerate(matches, 1):
+                    print(f"{i}. {b['title']} by {b['author']} [{b['status']}]")
+                pick = input("Enter number to remove (or blank to cancel): ").strip()
+                if pick.isdigit() and 1 <= int(pick) <= len(matches):
+                    book = matches[int(pick) - 1]
+                    book_manager.remove_book(book['id'])
+                    print(f"✓ Removed '{book['title']}' by {book['author']}")
+                else:
+                    print("Cancelled.")
 
         elif choice == '3':
             print("\n--- All Books ---")
@@ -134,8 +152,7 @@ def main():
 
         elif choice == '7':
             print("\nThank you for using Book Tracker! Happy reading! 📚")
-            db.close()
-            sys.exit(0)
+            return
 
         else:
             print("✗ Invalid choice. Please try again.")

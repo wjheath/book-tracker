@@ -3,6 +3,7 @@ import sys
 import csv
 import io
 import json
+import logging
 import traceback
 from datetime import datetime
 from flask import Flask, jsonify, request, send_file, Response
@@ -12,6 +13,9 @@ from book_manager import BookManager
 from llm_suggester import LLM_Suggester
 from chat_engine import BookChatEngine
 from reader_profile import ReaderProfile
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 # Initialize Flask app with static folder
 app = Flask(__name__, static_folder=os.path.dirname(__file__), static_url_path='')
@@ -23,7 +27,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'books.db')
 def get_llm_suggester():
     try:
         return LLM_Suggester()
-    except Exception as e:
+    except Exception:
+        logger.exception("Could not initialize LLM suggester")
         return None
 
 # Singleton chat engine (reused across requests)
@@ -33,8 +38,8 @@ def get_chat_engine():
     if _chat_engine is None:
         try:
             _chat_engine = BookChatEngine()
-        except Exception as e:
-            print(f"Warning: Could not initialize chat engine: {e}")
+        except Exception:
+            logger.exception("Could not initialize chat engine")
             return None
     return _chat_engine
 
